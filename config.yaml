@@ -1,0 +1,25 @@
+# config.yaml
+
+# API Endpoints
+bazaar_api_url: "https://mb-api.abuse.ch/api/v1/"
+vt_api_url: "https://www.virustotal.com/api/v3/files/"
+
+# File Paths
+data_paths:
+  raw_vt_reports: "data/raw/vt_reports/"
+  processed_docs: "data/processed/"
+  vector_db: "data/vector_db/"
+  external_cisa_reports: "data/external/cisa_reports/"
+  external_yara_rules: "data/external/yara_rules/"
+
+# RAG Knowledge Base Settings
+embedding_model: "./local_models/all-MiniLM-L6-v2"
+chunk_size: 1000
+chunk_overlap: 100
+collection_name: "malware_intelligence"
+
+# LLM Settings
+llm_settings:
+  provider: "ollama"
+  model_name: "mistral:7b-instruct"
+  base_url: "http://localhost:11434"

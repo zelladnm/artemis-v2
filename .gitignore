@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Data
+data/raw/
+data/processed/
+data/vector_db/
+
+# IDE
+.vscode/
+.idea/

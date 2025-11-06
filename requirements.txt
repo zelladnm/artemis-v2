@@ -1,0 +1,22 @@
+# API interaction
+requests
+tqdm
+
+# Configuration and environment
+python-dotenv
+pyyaml
+
+# LangChain and Vector DB
+langchain
+langchain-community
+sentence-transformers
+chromadb
+langchain-huggingface
+unstructured
+langchain-chroma
+pypdf
+ollama
+gradio
+plotly
+pyvis
+python-whois

@@ -1,0 +1,164 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 800px;
+                 background-color: #222222;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#FFC300", "font": {"color": "white"}, "id": "MAR-10398871.r1.v2.WHITE", "label": "MAR-10398871.r1.v2.WHITE", "shape": "dot", "size": 25, "title": "Analysis of a malicious DLL that side-loads a Cobalt Strike Beacon, linked to the exploitation of multiple vulnerabilities in Zimbra Collaboration Suite (ZCS)."}, {"color": "#C70039", "font": {"color": "white"}, "id": "cobalt strike", "label": "cobalt strike", "shape": "dot", "size": 15}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-24682", "label": "CVE-2022-24682", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-27924", "label": "CVE-2022-27924", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-27925", "label": "CVE-2022-27925", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-37042", "label": "CVE-2022-37042", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-30333", "label": "CVE-2022-30333", "shape": "dot", "size": 10}, {"color": "#FFC300", "font": {"color": "white"}, "id": "Destructive_Malware_White_Paper_S508C", "label": "Destructive_Malware_White_Paper_S508C", "shape": "dot", "size": 25, "title": "A comprehensive overview from ICS-CERT detailing various families of destructive wiper malware and providing recommendations for mitigation and response."}, {"color": "#C70039", "font": {"color": "white"}, "id": "killdisk", "label": "killdisk", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "whiterose", "label": "whiterose", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "darkseoul", "label": "darkseoul", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "destfallen", "label": "destfallen", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "destover", "label": "destover", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "blackenergy 2", "label": "blackenergy 2", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "shamoon", "label": "shamoon", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "disttrack", "label": "disttrack", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "ghost rat", "label": "ghost rat", "shape": "dot", "size": 15}, {"color": "#FFC300", "font": {"color": "white"}, "id": "aa23-352a-stopransomware-play-ransomware_2", "label": "aa23-352a-stopransomware-play-ransomware_2", "shape": "dot", "size": 25, "title": "A joint advisory detailing the tactics, techniques, procedures (TTPs), and indicators of compromise (IOCs) associated with the Play ransomware group."}, {"color": "#C70039", "font": {"color": "white"}, "id": "play", "label": "play", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "playcrypt", "label": "playcrypt", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "grixba", "label": "grixba", "shape": "dot", "size": 15}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2018-13379", "label": "CVE-2018-13379", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2020-12812", "label": "CVE-2020-12812", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-41040", "label": "CVE-2022-41040", "shape": "dot", "size": 10}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2022-41082", "label": "CVE-2022-41082", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1078", "label": "T1078", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1190", "label": "T1190", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1133", "label": "T1133", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1059.001", "label": "T1059.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "TA0007", "label": "TA0007", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1016", "label": "T1016", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1518.001", "label": "T1518.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1562.001", "label": "T1562.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1070.001", "label": "T1070.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1552", "label": "T1552", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1003", "label": "T1003", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1059", "label": "T1059", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1570", "label": "T1570", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1484.001", "label": "T1484.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1027", "label": "T1027", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1560.001", "label": "T1560.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1048", "label": "T1048", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1486", "label": "T1486", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1657", "label": "T1657", "shape": "dot", "size": 10}, {"color": "#FFC300", "font": {"color": "white"}, "id": "MAR-10454006.r5.v1.CLEAR__0", "label": "MAR-10454006.r5.v1.CLEAR__0", "shape": "dot", "size": 25, "title": "Analysis of five distinct malware backdoors (SUBMARINE, SKIPJACK, SEASPRAY, WHIRLPOOL, SALTWATER) exploiting a zero-day vulnerability in Barracuda Email Security Gateway (ESG)."}, {"color": "#C70039", "font": {"color": "white"}, "id": "submarine", "label": "submarine", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "skipjack", "label": "skipjack", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "seaspray", "label": "seaspray", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "whirlpool", "label": "whirlpool", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "saltwater", "label": "saltwater", "shape": "dot", "size": 15}, {"color": "#581845", "font": {"color": "white"}, "id": "CVE-2023-2868", "label": "CVE-2023-2868", "shape": "dot", "size": 10}, {"color": "#FFC300", "font": {"color": "white"}, "id": "qakbot_CISA_report", "label": "qakbot_CISA_report", "shape": "dot", "size": 25, "title": "A detailed report from the Health Sector Cybersecurity Coordination Center (HC3) on the QakBot banking trojan, its lifecycle, recent campaigns, and mitigation practices."}, {"color": "#C70039", "font": {"color": "white"}, "id": "qakbot", "label": "qakbot", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "qbot", "label": "qbot", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "pinkslipbot", "label": "pinkslipbot", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "emotet", "label": "emotet", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "prolock", "label": "prolock", "shape": "dot", "size": 15}, {"color": "#FFC300", "font": {"color": "white"}, "id": "sandworm_CISA_report", "label": "sandworm_CISA_report", "shape": "dot", "size": 25, "title": "A joint advisory detailing the replacement of the VPNFilter malware with a more advanced framework, Cyclops Blink, operated by the Sandworm (Russian GRU) actor."}, {"color": "#C70039", "font": {"color": "white"}, "id": "cyclops blink", "label": "cyclops blink", "shape": "dot", "size": 15}, {"color": "#C70039", "font": {"color": "white"}, "id": "vpnfilter", "label": "vpnfilter", "shape": "dot", "size": 15}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1132.002", "label": "T1132.002", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1542.001", "label": "T1542.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1037.004", "label": "T1037.004", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1562.004", "label": "T1562.004", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1036.005", "label": "T1036.005", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1082", "label": "T1082", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1090", "label": "T1090", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1008", "label": "T1008", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1071.001", "label": "T1071.001", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1573.002", "label": "T1573.002", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1571", "label": "T1571", "shape": "dot", "size": 10}, {"color": "#900C3F", "font": {"color": "white"}, "id": "T1041", "label": "T1041", "shape": "dot", "size": 10}, {"color": "#FFC300", "font": {"color": "white"}, "id": "MAR-10132963", "label": "MAR-10132963", "shape": "dot", "size": 25, "title": "Analysis of three files associated with the DeltaCharlie malware, which is designed to conduct DDoS attacks (NTP, DNS, CGN) and establish backdoor command-and-control."}, {"color": "#C70039", "font": {"color": "white"}, "id": "deltacharlie", "label": "deltacharlie", "shape": "dot", "size": 15}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "discusses", "to": "cobalt strike"}, {"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "mentions", "to": "CVE-2022-24682"}, {"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "mentions", "to": "CVE-2022-27924"}, {"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "mentions", "to": "CVE-2022-27925"}, {"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "mentions", "to": "CVE-2022-37042"}, {"arrows": "to", "from": "MAR-10398871.r1.v2.WHITE", "title": "mentions", "to": "CVE-2022-30333"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "killdisk"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "whiterose"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "darkseoul"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "destfallen"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "destover"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "blackenergy 2"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "shamoon"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "disttrack"}, {"arrows": "to", "from": "Destructive_Malware_White_Paper_S508C", "title": "discusses", "to": "ghost rat"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "discusses", "to": "play"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "discusses", "to": "playcrypt"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "discusses", "to": "grixba"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "CVE-2018-13379"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "CVE-2020-12812"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "CVE-2022-41040"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "CVE-2022-41082"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1078"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1190"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1133"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1059.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "TA0007"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1016"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1518.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1562.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1070.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1552"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1003"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1059"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1570"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1484.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1027"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1560.001"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1048"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1486"}, {"arrows": "to", "from": "aa23-352a-stopransomware-play-ransomware_2", "title": "mentions", "to": "T1657"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "discusses", "to": "submarine"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "discusses", "to": "skipjack"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "discusses", "to": "seaspray"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "discusses", "to": "whirlpool"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "discusses", "to": "saltwater"}, {"arrows": "to", "from": "MAR-10454006.r5.v1.CLEAR__0", "title": "mentions", "to": "CVE-2023-2868"}, {"arrows": "to", "from": "qakbot_CISA_report", "title": "discusses", "to": "qakbot"}, {"arrows": "to", "from": "qakbot_CISA_report", "title": "discusses", "to": "qbot"}, {"arrows": "to", "from": "qakbot_CISA_report", "title": "discusses", "to": "pinkslipbot"}, {"arrows": "to", "from": "qakbot_CISA_report", "title": "discusses", "to": "emotet"}, {"arrows": "to", "from": "qakbot_CISA_report", "title": "discusses", "to": "prolock"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "discusses", "to": "cyclops blink"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "discusses", "to": "vpnfilter"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1132.002"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1542.001"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1037.004"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1562.004"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1036.005"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1082"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1090"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1008"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1071.001"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1573.002"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1571"}, {"arrows": "to", "from": "sandworm_CISA_report", "title": "mentions", "to": "T1041"}, {"arrows": "to", "from": "MAR-10132963", "title": "discusses", "to": "deltacharlie"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "forceAtlas2Based": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.01,
+            "damping": 0.4,
+            "gravitationalConstant": -50,
+            "springConstant": 0.08,
+            "springLength": 100
+        },
+        "solver": "forceAtlas2Based",
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
