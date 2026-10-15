@@ -8,7 +8,7 @@ No Ollama, VM, GPU, ChromaDB, secrets, or network access required. From the repo
 
     python -m artemis_v3 demo.example
     python -m artemis_v3 203.0.113.10 --format json
-    python -m unittest discover -s tests -p 'test_v3.py' -v
+    python -m unittest discover -s tests -p 'test_v3*.py' -v
 
 The indicators demo.example, 203.0.113.10 and a hash of 64 a characters are **synthetic fixtures**. Results are explicitly marked as demo data, not real threat intelligence. Other inputs return no_evidence, never a clean verdict.
 
@@ -42,3 +42,9 @@ AI and sandboxing remain optional **future adapters**, not installation requirem
 ## Compatibility
 
 Legacy Gradio v2 code is not changed in this first alpha. Do not use this preview on production cases.
+
+## Recovery and behavior evidence
+
+See [the recovery inventory](RECOVERY.md) for the thesis-to-code comparison and revised priorities.
+[Offline CAPE import](CAPE.md) is now available as a bounded, read-only evidence adapter.
+It does not require a sandbox or execute samples.

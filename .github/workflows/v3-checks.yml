@@ -3,9 +3,9 @@ name: Artemis v3 checks
 on:
   push:
     branches: [main, 'feat/artemis-v3-*']
-    paths: ['artemis_v3/**', 'tests/test_v3.py', '.github/workflows/v3-checks.yml']
+    paths: ['artemis_v3/**', 'tests/**', 'docs/v3/**', '.github/workflows/v3-checks.yml']
   pull_request:
-    paths: ['artemis_v3/**', 'tests/test_v3.py', '.github/workflows/v3-checks.yml']
+    paths: ['artemis_v3/**', 'tests/**', 'docs/v3/**', '.github/workflows/v3-checks.yml']
 
 jobs:
   test:
@@ -18,4 +18,4 @@ jobs:
       - name: Compile v3 source
         run: python -m compileall -q artemis_v3
       - name: Run v3 offline tests
-        run: python -m unittest discover -s tests -p 'test_v3.py' -v
+        run: python -m unittest discover -s tests -p 'test_v3*.py' -v
