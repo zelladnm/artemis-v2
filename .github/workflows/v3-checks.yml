@@ -1,0 +1,21 @@
+name: Artemis v3 checks
+
+on:
+  push:
+    branches: [main, 'feat/artemis-v3-*']
+    paths: ['artemis_v3/**', 'tests/test_v3.py', '.github/workflows/v3-checks.yml']
+  pull_request:
+    paths: ['artemis_v3/**', 'tests/test_v3.py', '.github/workflows/v3-checks.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile v3 source
+        run: python -m compileall -q artemis_v3
+      - name: Run v3 offline tests
+        run: python -m unittest discover -s tests -p 'test_v3.py' -v
