@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 import math
 
+from .timeline import build_timeline
+
 MAX_BYTES = 10 * 1024 * 1024
 MAX_NODES = 200_000
 MAX_DEPTH = 64
@@ -38,12 +40,13 @@ class CapeReport:
     evidence: list[BehaviorEvidence] = field(default_factory=list)
     process_links: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    schema_version: str = 'cape-evidence/1'
+    schema_version: str = 'cape-evidence/2'
 
     def as_dict(self) -> dict:
         result = asdict(self)
         result['status'] = 'partial' if self.warnings else 'parsed'
         result['verdict'] = 'not_assessed'
+        result['timeline'] = build_timeline(self.evidence)
         result['scope'] = 'Selected CAPE JSON fields only; retain the original report.'
         return result
 
@@ -164,8 +167,19 @@ def parse_cape_report(raw: bytes, *, synthetic: bool = False) -> CapeReport:
                     raise CapeReportError(f'{activity_path}/{index}: expected string path')
                 add('process_file_activity', f'{activity_path}/{index}',
                     {'reported_operation': operation, 'path': value}, process_ref=eid)
-        if 'calls' in process and process['calls']:
-            result.warnings.append(f'{pointer}/calls: API calls are outside this adapter scope')
+        for index, call in enumerate(array(process, 'calls', pointer + '/calls')):
+            call_pointer = f'{pointer}/calls/{index}'
+            call = obj(call, call_pointer)
+            if not isinstance(call.get('api'), str) or not call['api'].strip():
+                raise CapeReportError(f'{call_pointer}/api: expected nonempty string')
+            if 'arguments' in call:
+                for arg_index, arg in enumerate(array(call, 'arguments', call_pointer + '/arguments')):
+                    obj(arg, f'{call_pointer}/arguments/{arg_index}')
+            if 'repeated' in call and (type(call['repeated']) is not int or call['repeated'] < 0):
+                raise CapeReportError(f'{call_pointer}/repeated: expected nonnegative integer')
+            # Preserve status/return/arguments verbatim. A call alone proves neither
+            # success nor injection. Repeated calls stay one source record.
+            add('api_call', call_pointer, call, process_ref=eid)
     # Only unambiguous PID relations become links. PID reuse is not resolved by guessing.
     parents = {pid: ppid for pid, ppid, _ in process_rows if len(by_pid[pid]) == 1}
     # Memoize cycle reachability so a long process chain remains linear-time.
@@ -218,4 +232,7 @@ def parse_cape_report(raw: bytes, *, synthetic: bool = False) -> CapeReport:
         for i, value in enumerate(array(network, key, '/network/' + key)):
             pointer = f'/network/{key}/{i}'
             add('network_' + key, pointer, obj(value, pointer))
+    undated = build_timeline(result.evidence)['undated']
+    if undated:
+        result.warnings.append(f'Timeline: {len(undated)} process/API records have missing or invalid timestamps; retained as undated')
     return result

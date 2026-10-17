@@ -2,8 +2,8 @@
   "info": {"id": 1, "description": "Synthetic fixture, not a malware execution"},
   "behavior": {
     "processes": [
-      {"process_id": 100, "parent_id": 0, "process_name": "setup-demo.exe", "first_seen": "2026-01-01 10:00:00"},
-      {"process_id": 101, "parent_id": 100, "process_name": "helper-demo.exe", "first_seen": "2026-01-01 10:00:01"}
+      {"process_id": 100, "parent_id": 0, "process_name": "setup-demo.exe", "calls": [], "first_seen": "2026-01-01 10:00:00"},
+      {"process_id": 101, "parent_id": 100, "process_name": "helper-demo.exe", "calls": [], "first_seen": "2026-01-01 10:00:01"}
     ],
     "summary": {"files": ["C:\\Demo\\readme.txt"], "write_files": ["C:\\Demo\\readme.txt"]}
   },

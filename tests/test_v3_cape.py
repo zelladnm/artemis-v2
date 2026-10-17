@@ -37,7 +37,7 @@ class CapeTests(unittest.TestCase):
                 self.assertEqual(item.data['path'], node)
                 self.assertIsNone(item.process_ref)
             else:
-                self.assertEqual(item.data, node)
+                self.assertEqual(item.data, {k: v for k, v in node.items() if k != 'calls'} if item.category == 'process' else node)
         self.assertEqual(result.as_dict(), parse_cape_report(raw, synthetic=True).as_dict())
 
     def test_process_file_activity_has_explicit_process_reference(self):
@@ -100,10 +100,12 @@ class CapeTests(unittest.TestCase):
                 self.assertEqual(result.process_links, [])
                 self.assertTrue(result.warnings)
 
-    def test_api_calls_are_explicitly_out_of_scope(self):
+    def test_api_calls_preserve_source_without_injection_verdict(self):
         result = parse_cape_report(encode({'behavior': {'processes': [
             {'process_id': 1, 'parent_id': 0, 'calls': [{'api': 'NtWriteVirtualMemory'}]}]}}))
-        self.assertTrue(any('API calls' in w for w in result.warnings))
+        self.assertEqual(result.evidence[1].category, 'api_call')
+        self.assertEqual(result.evidence[1].process_ref, result.evidence[0].evidence_id)
+        self.assertEqual(result.evidence[1].data, {'api': 'NtWriteVirtualMemory'})
         self.assertNotIn('calls', result.evidence[0].data)
         self.assertEqual(result.as_dict()['verdict'], 'not_assessed')
 

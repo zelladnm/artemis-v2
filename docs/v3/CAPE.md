@@ -18,7 +18,8 @@ invalid inputs return 2. Parsing success never means a sample is benign.
 
 | Input | Output |
 |---|---|
-| `behavior.processes[]` | Source process metadata, excluding raw API calls |
+| `behavior.processes[]` | Source process metadata; calls become separate evidence |
+| `behavior.processes[].calls[]` | API evidence with process references; source parameters, status, return and repetition retained |
 | `process_id`, `parent_id` | Unambiguous reported-parent links; never injection claims |
 | `behavior.processes[].file_activities.{read_files,write_files,delete_files}[]` | File paths with explicit process evidence references |
 | `behavior.summary.{files,read_files,write_files,delete_files}[]` | Unattributed file activity; no fabricated process or timestamp |
@@ -28,8 +29,7 @@ invalid inputs return 2. Parsing success never means a sample is benign.
 
 The adapter uses `process_id`/`parent_id` as nonnegative JSON integers. Duplicate
 PIDs, absent parents, and cycles generate diagnostics; ambiguous links are
-omitted. PID reuse requires a later lifecycle-aware adapter. Source timestamps
-are preserved as data, not normalized or claimed to be a complete timeline.
+omitted. PID reuse requires a later lifecycle-aware adapter. Process `first_seen` and API `timestamp` values are preserved in evidence and normalized into separate clock domains; this is not a complete timeline.
 
 Every evidence record has the exact source-byte SHA-256 plus an RFC 6901 JSON
 pointer. Whitespace changes the source digest intentionally. Keep the original
@@ -44,7 +44,7 @@ Input is limited to 10 MiB, 200,000 JSON value nodes, depth 64, and 20,000 norma
 records. Oversize/deep/invalid input fails atomically. Duplicate keys and nonfinite
 numbers are rejected. Missing supported sections produce explicit coverage
 warnings; malformed supported containers fail. Unknown fields remain outside the
-adapter contract. API calls are not normalized and their presence is flagged.
+adapter contract. API call objects require nonempty `api` names; optional `arguments` must be an array of objects and `repeated` a nonnegative integer. Missing calls produce a coverage warning; malformed calls fail atomically.
 No report-provided paths, URLs or commands are dereferenced. Raw strings remain
 untrusted data, including for any future LLM prompt or UI. Markdown export escapes
 HTML, backticks and control characters; JSON retains data for downstream handling.
@@ -52,7 +52,7 @@ HTML, backticks and control characters; JSON retains data for downstream handlin
 This is a bounded in-memory reader, not a hostile-file sandbox or streaming parser.
 Use regular local report files. Large original reports require a future streaming
 adapter; do not silently truncate them. Raw BSON, PCAP, memory dumps, screenshots,
-registry events, ATT&CK mapping, scoring and model calls are outside this delivery.
+higher-level registry interpretation, ATT&CK mapping, scoring and model calls are outside this delivery.
 
 All committed fixtures are synthetic. Compatibility with deployed CAPE versions
 and accuracy on real investigations remain unverified.
@@ -68,3 +68,39 @@ implementation; no upstream code was copied:
 
 CAPE reporting serializes processing results. This adapter reads selected processed
 fields; it does not reproduce the thesis's raw filesystem forensic collection.
+
+## Process and API chronology (schema cape-evidence/2)
+
+```sh
+python -m artemis_v3 --cape-report tests/fixtures/cape_timeline_synthetic.json --synthetic --format json
+```
+
+The version changes from `cape-evidence/1` to `/2`: API calls are now evidence and
+`timeline` is added to JSON/Markdown output. Existing process evidence still excludes
+`calls`. Consumers must accept the new `api_call` category. Record limits include
+API calls; oversized reports fail rather than dropping calls.
+
+Timeline entries reference original evidence and timestamp JSON pointers. A missing
+field has no pointer. Invalid/null source timestamps remain in evidence. Missing or
+invalid process/API times produce coverage warnings and an `undated` entry.
+
+- `utc`: explicitly offset timestamps normalized to UTC, sorted chronologically.
+- `report_clock`: timestamps without timezone, sorted as reported wall-clock values.
+  No host timezone is assumed. Cross-process clock synchronization is unverified.
+- `undated`: missing, unsupported or invalid timestamps in source order.
+
+No total ordering is asserted between these domains. Equal timestamps retain source
+order for reproducibility, not causality. Supported strings have date and full time,
+optional 1–6 fractional digits, and optional `Z`/`+HH:MM`/`-HH:MM`. Epoch numbers,
+date-only strings and invalid calendars are not guessed. File/network summaries
+remain evidence outside this process/API timeline; their timestamps are not inferred.
+
+Each call links to its containing process record, not a PID lookup. `first_seen`
+means first observed, not proven process creation. Status and return values remain
+source assertions; even `NtWriteVirtualMemory` is not automatically an injection
+finding. Compressed `repeated` values remain on one call record, with no invented
+individual timestamps or expanded execution count.
+
+The new fixture contains failed calls, reused PIDs, mixed clocks and unknown times.
+It is synthetic and does not establish real-version compatibility or detection
+accuracy. No API execution, external lookup or scoring is introduced.

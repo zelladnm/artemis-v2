@@ -1,0 +1,19 @@
+{
+  "behavior": {
+    "processes": [
+      {"process_id": 10, "parent_id": 0, "process_name": "demo.exe", "first_seen": "2026-01-01 10:00:00.000", "calls": [
+        {"api": "NtWriteVirtualMemory", "timestamp": "2026-01-01 10:00:02.000", "thread_id": "11", "status": false, "return": "0xc0000008", "arguments": [{"name": "ProcessHandle", "value": "0xdead"}], "repeated": 2},
+        {"api": "NtOpenProcess", "timestamp": "2026-01-01 10:00:01.000", "status": false, "arguments": []},
+        {"api": "DemoUnknownTime", "timestamp": "unknown", "arguments": []}
+      ]},
+      {"process_id": 10, "parent_id": 0, "process_name": "reused-pid-demo.exe", "first_seen": "2026-01-01T12:00:00+08:00", "calls": [
+        {"api": "DemoUTC", "timestamp": "2026-01-01T04:00:01Z", "status": true},
+        {"api": "DemoNoTimestamp", "status": true}
+      ]}
+    ],
+    "summary": {"files": []}
+  },
+  "network": {"dns": [], "http": [], "tcp": [], "udp": []},
+  "dropped": [],
+  "signatures": []
+}
