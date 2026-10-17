@@ -1,0 +1,7 @@
+{
+  "version": "synthetic-demo/1",
+  "synthetic": true,
+  "rules": [
+    {"rule_id": "DEMO-ONLY-1", "signature_name": "synthetic_behavior", "points": 1, "critical": false}
+  ]
+}
