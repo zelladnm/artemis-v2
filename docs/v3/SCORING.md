@@ -31,7 +31,7 @@ The example rule is intentionally synthetic; it is **not** a real threat detecti
 - Define and peer-review actual rule catalogs with documented evidence semantics.
 - Validate against independently labelled, authorized benign and malicious report datasets.
 - Measure false positives, false negatives, rule coverage and harmful downgrade proposals.
-- Implement explicit analyst approval records and optional evidence-constrained LLM review.
+- Add authenticated reviewer identity and optional evidence-constrained LLM review; local decision records are available via REVIEW.md.
 - Restore dynamic analysis capabilities only through separately reviewed isolation services.
 
 The original thesis experiments and scoring weights are historical design references, not evidence that this scaffold is accurate.
@@ -66,8 +66,9 @@ carry into the assessment. Zero points mean no configured signature matched.
 Adjustment proposals remain a Python API, not automated AI output. They cannot
 apply a changed score. Critical findings block negative proposals, and other
 proposals await review. Arguments are trusted in-process objects, not authenticated
-review records or an authorization boundary; persistence, explicit analyst identity,
-rule authenticity and a review application workflow are future work.
+review records or an authorization boundary. Local persistence and explicit decision
+recording are available through REVIEW.md; authenticated identity, rule authenticity
+and an analyst review UI remain future work.
 
 This integration reuses the original scoring implementation from commit
 `4c31634` and adds configuration validation and offline CLI/compatibility tests.
