@@ -8,6 +8,7 @@ import html
 from .cape import load_cape_report
 from .engine import investigate
 from .providers import DemoProvider, VirusTotalProvider
+from .proposals import load_proposal
 from .ruleset import load_ruleset
 from .scoring import assess_signatures
 from .review import load_review_request, record_review, list_reviews
@@ -26,10 +27,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--review-db", help="Local SQLite review history destination")
     parser.add_argument("--review-template", action="store_true", help="Include an unfilled review request template")
     parser.add_argument("--review-history", help="Read recent local review history from SQLite")
+    parser.add_argument("--proposal-file", help="Untrusted local JSON suggestion; requires explicit analyst review")
     args = parser.parse_args(argv)
+    if args.proposal_file and not args.ruleset:
+        parser.error("--proposal-file requires --cape-report and --ruleset")
     if args.review_history:
         if (args.indicator or args.cape_report or args.ruleset or args.review_request or args.review_db
-                or args.review_template or args.synthetic or args.source != "demo"):
+                or args.review_template or args.proposal_file or args.synthetic or args.source != "demo"):
             parser.error("--review-history must be used without investigation/review input options")
         try:
             records = list_reviews(args.review_history)
@@ -60,14 +64,22 @@ def main(argv: list[str] | None = None) -> int:
                           "rule_assessment": assessment.as_dict(),
                           "ruleset_sha256": catalog.source_sha256,
                           "ruleset_synthetic": catalog.synthetic}
+                packet = None
+                if args.proposal_file:
+                    packet = load_proposal(args.proposal_file, report=report, assessment=assessment, ruleset=catalog)
+                    result["proposal_review"] = packet
                 if args.review_template:
                     result["review_request_template"] = {
                         "source_sha256": report.source_sha256, "ruleset_sha256": catalog.source_sha256,
                         "delta": 0, "cited_evidence": [], "rationale": "", "reviewer": "",
                         "decision": "defer", "reason": "", "expected_previous_id": None}
+                    if packet:
+                        adjustment = packet["adjustment_proposal"]
+                        result["review_request_template"].update(delta=adjustment["proposed_delta"],
+                            cited_evidence=list(adjustment["cited_evidence"]), rationale=adjustment["rationale"])
                 if args.review_request:
                     request = load_review_request(args.review_request)
-                    result["analyst_review"] = record_review(args.review_db, report, catalog, request)
+                    result["analyst_review"] = record_review(args.review_db, report, catalog, request, proposal_packet=packet)
                 rendered = json.dumps(result, ensure_ascii=True, indent=2)
                 if args.format != "json":
                     label = "\n**SYNTHETIC DEMO DATA**\n" if report.synthetic or catalog.synthetic else ""

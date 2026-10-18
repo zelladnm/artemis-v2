@@ -40,6 +40,13 @@ def load_ruleset(path: str | Path) -> RuleSet:
             raw = source.read(MAX_RULESET_BYTES + 1)
     except OSError as exc:
         raise ValueError('Cannot read ruleset') from exc
+    return parse_ruleset(raw)
+
+
+def parse_ruleset(raw: bytes) -> RuleSet:
+    """Parse explicitly supplied catalog bytes without temporary files."""
+    if not isinstance(raw, bytes):
+        raise ValueError('Expected ruleset JSON bytes')
     if len(raw) > MAX_RULESET_BYTES:
         raise ValueError('Ruleset exceeds the 64 KiB limit')
     try:

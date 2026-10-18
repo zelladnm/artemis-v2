@@ -19,3 +19,33 @@ jobs:
         run: python -m compileall -q artemis_v3
       - name: Run v3 offline tests
         run: python -m unittest discover -s tests -p 'test_v3*.py' -v
+
+  workbench-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tooling (not a runtime dependency)
+        run: npm install --prefix "$RUNNER_TEMP/artemis-ui" --no-save playwright@1.56.1
+      - name: Install Chromium for browser checks
+        run: node "$RUNNER_TEMP/artemis-ui/node_modules/playwright/cli.js" install --with-deps chromium --only-shell
+      - name: Run workbench browser flow
+        env:
+          ARTEMIS_PLAYWRIGHT_PATH: ${{ runner.temp }}/artemis-ui/node_modules/playwright
+          ARTEMIS_UI_ARTIFACTS: ${{ runner.temp }}/artemis-ui-artifacts
+        run: node tests/workbench_browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workbench-browser-screenshots
+          path: ${{ runner.temp }}/artemis-ui-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
