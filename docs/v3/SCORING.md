@@ -71,3 +71,11 @@ rule authenticity and a review application workflow are future work.
 
 This integration reuses the original scoring implementation from commit
 `4c31634` and adds configuration validation and offline CLI/compatibility tests.
+
+## Analyst decisions
+
+[Local review history](REVIEW.md) now provides explicit approve/reject/defer records
+bound to report and catalog fingerprints. The deterministic score remains intact;
+a separately recorded analyst score requires approval. This adds local persistence
+and stale-write protection. Authenticated identity, enterprise authorization and a
+multi-party approval workflow are still future work.
