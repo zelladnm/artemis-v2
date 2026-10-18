@@ -56,6 +56,7 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     await page.locator('#decision').selectOption('defer');
     await page.locator('#submit-review').click();
     await page.waitForFunction(() => document.getElementById('review-result').textContent.includes('已保存'));
+    await page.locator('#history-list .history-record').first().waitFor({ state: 'visible' });
     assert.equal(await page.locator('#history-list .history-record').count(), 1);
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#export-json').click();
