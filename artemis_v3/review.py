@@ -112,7 +112,7 @@ def _decode_row(row):
     return record
 
 
-def record_review(database, report, catalog, request):
+def record_review(database, report, catalog, request, *, proposal_packet=None):
     """Recompute score/proposal, then append a decision atomically without overwrites.
 
     expected_previous_id guards against stale decisions per proposal. Approving a
@@ -127,6 +127,10 @@ def record_review(database, report, catalog, request):
                                   cited_evidence=request['cited_evidence'], rationale=request['rationale'])
     if request['decision'] == 'approve' and proposal.status == 'blocked_critical_signal':
         raise ReviewError('Critical negative proposals cannot be approved by this workflow')
+    if proposal_packet is not None:
+        if (_digest(proposal_packet.get('adjustment_proposal')) != _digest(proposal.as_dict()) or
+                proposal_packet.get('ruleset_sha256') != catalog.source_sha256):
+            raise ReviewError('Review decision differs from the imported proposal')
     assessment_data = assessment.as_dict()
     proposal_data = proposal.as_dict()
     proposal_id = _digest({'assessment': assessment_data, 'proposal': proposal_data,
@@ -151,6 +155,7 @@ def record_review(database, report, catalog, request):
             'decision': request['decision'], 'reason': request['reason'].strip(),
             'source_sha256': report.source_sha256, 'ruleset_sha256': catalog.source_sha256,
             'ruleset_synthetic': catalog.synthetic, 'assessment': assessment_data,
+            'external_proposal_sha256': proposal_packet['proposal_sha256'] if proposal_packet else None,
             'proposal': proposal_data,
             'base_score': assessment.base_score,
             'analyst_score': proposal.proposed_score if request['decision'] == 'approve' else None,

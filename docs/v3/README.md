@@ -48,3 +48,11 @@ Legacy Gradio v2 code is not changed in this first alpha. Do not use this previe
 See [the recovery inventory](RECOVERY.md) for the thesis-to-code comparison and revised priorities.
 [Offline CAPE import](CAPE.md) is now available as a bounded, read-only evidence adapter.
 It does not require a sandbox or execute samples.
+
+## Local investigation workbench
+
+Run `python -m artemis_v3.workbench` and open the printed loopback address. Load the
+synthetic demo to inspect process relationships, timelines and source evidence.
+[Workbench documentation](WORKBENCH.md) covers optional rule/suggestion imports,
+explicit local analyst review persistence and report exports. No model or sandbox
+is required; model explanations are not yet implemented.

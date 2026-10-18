@@ -1,0 +1,18 @@
+{
+  "info": {"id": 1, "description": "Synthetic fixture, not a malware execution"},
+  "behavior": {
+    "processes": [
+      {"process_id": 100, "parent_id": 0, "process_name": "setup-demo.exe", "calls": [], "first_seen": "2026-01-01 10:00:00"},
+      {"process_id": 101, "parent_id": 100, "process_name": "helper-demo.exe", "calls": [], "first_seen": "2026-01-01 10:00:01"}
+    ],
+    "summary": {"files": ["C:\\Demo\\readme.txt"], "write_files": ["C:\\Demo\\readme.txt"]}
+  },
+  "dropped": [{"name": "readme.txt", "path": "C:\\Demo\\readme.txt"}],
+  "signatures": [{"name": "synthetic_behavior", "severity": 1, "description": "Synthetic source assertion, not a detection"}],
+  "network": {
+    "dns": [{"request": "demo.example", "type": "A", "answers": [{"type": "A", "data": "203.0.113.10"}]}],
+    "http": [{"host": "demo.example", "uri": "http://demo.example/setup", "method": "GET"}],
+    "tcp": [{"src": "192.0.2.1", "sport": 50000, "dst": "203.0.113.10", "dport": 80}],
+    "udp": []
+  }
+}
