@@ -4,6 +4,12 @@ const token = document.querySelector('meta[name="artemis-token"]').content;
 const reviewEnabled = document.querySelector('meta[name="review-enabled"]').content === 'true';
 let inputs = {}, result = null, selected = new Set(), busy = false;
 const versions = {};
+let modelConfig = { model_enabled: false };
+function updateModelControls() {
+  $('explain').disabled = busy || !result || !modelConfig.model_enabled;
+  $('model-note').textContent = modelConfig.model_enabled ? '本地模型已配置' : '模型未配置';
+}
+api('/api/config').then(config => { modelConfig = config; updateModelControls(); }).catch(() => {});
 function el(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -17,6 +23,7 @@ function setBusy(value) {
   $('analyze').disabled = value || !inputs.report;
   $('submit-review').disabled = value || !reviewEnabled || !result?.rule_assessment;
   $('analyze').textContent = value ? '处理中…' : '开始调查';
+  updateModelControls();
 }
 async function api(path, data) {
   const response = await fetch(path, {
@@ -108,7 +115,7 @@ function render() {
     }
     if (!assessment.findings.length) findings.append(el('p', '没有配置规则命中；这不代表样本安全。'));
   }
-  const model = el('div', undefined, 'panel'); model.append(el('h2', '辅助研判'), el('p', '模型尚未接入。可导入已有的 JSON 校正建议，验证来源后交给人工复核。'), el('p', '分析范围：已有 CAPE 报告的只读解析。本工作台不会执行样本。'));
+  const model = el('div', undefined, 'panel'); model.append(el('h2', '辅助研判'), el('p', modelConfig.model_enabled ? '本地模型已配置：' + modelConfig.model + '。点击“本地模型解释”后发送选定证据，结果仍需复核。' : '模型尚未接入。可导入已有的 JSON 校正建议，验证来源后交给人工复核。'), el('p', '分析范围：已有 CAPE 报告的只读解析。本工作台不会执行样本。'));
   columns.append(findings, model); overview.append(columns, el('h2', '数据覆盖与待验证事项'));
   if (!report.warnings.length) overview.append(el('p', '已支持字段无解析告警；这不证明沙箱捕获了完整行为。', 'muted'));
   for (const warning of report.warnings.slice(0, 100)) overview.append(el('div', warning, 'warning'));
@@ -116,7 +123,7 @@ function render() {
   renderProcesses(); renderTimeline();
   $('category').replaceChildren(new Option('全部类型', ''));
   for (const category of [...new Set(evidence.map(x => x.category))].sort()) $('category').append(new Option(category, category));
-  $('search').value = ''; renderEvidence(); renderReview();
+  $('search').value = ''; renderEvidence(); renderReview(); renderSemantic();
 }
 function renderProcesses() {
   const target = $('process'); target.replaceChildren(el('h2', '报告中的父子进程关系'), el('p', '父子关系不能单独证明进程注入；缺失、重复或循环关系不强行补全。最多展示 200 个进程。', 'muted'));
@@ -184,8 +191,9 @@ function renderReview() {
   if (packet) {
     const proposal = packet.adjustment_proposal;
     selected = new Set(proposal.cited_evidence); $('delta').value = proposal.proposed_delta; $('rationale').value = proposal.rationale;
-    target.append(el('div', proposal.status === 'blocked_critical_signal' ? '关键规则信号：负向校正建议不能获批。' : '已校验建议来源；尚未记录人工决定。', 'warning'));
-    target.append(el('pre', JSON.stringify(packet, null, 2))); renderEvidence();
+    const notice = el('div', proposal.status === 'blocked_critical_signal' ? '关键规则信号：负向校正建议不能获批。' : '已校验建议来源；尚未记录人工决定。', 'warning');
+    notice.id = 'proposal-decision'; target.append(notice);
+    target.append(el('p', '建议导入时的校验结果（人工决定见下方记录）：', 'muted'), el('pre', JSON.stringify(packet, null, 2))); renderEvidence();
   } else { $('delta').value = 0; $('rationale').value = ''; }
   $('review-status').textContent = !reviewEnabled ? '当前为只读模式。启动时配置 --review-db 后可保存本地复核历史。' : !result.rule_assessment ? '请先加载规则集。' : '身份为本地声明。保存操作会向本地数据库追加记录。';
   updateCitations(); setBusy(busy);
@@ -200,8 +208,10 @@ $('review-form').addEventListener('submit', async event => {
   setBusy(true); message();
   try {
     const reviewed = await api('/api/review', { ...inputs, review_request: request });
-    result = reviewed;
+    result = { ...reviewed, semantic_review: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64 };
+    if (result.semantic_review) result.model_status = 'completed';
     $('review-result').textContent = '已保存：' + reviewed.analyst_review.review_id + ' · 规则原始分数保持 ' + reviewed.analyst_review.base_score;
+    if ($('proposal-decision')) $('proposal-decision').textContent = '已保存人工决定：' + ({ approve: '批准建议', reject: '拒绝建议', defer: '暂缓决定' }[reviewed.analyst_review.decision]) + '。详见下方复核记录。';
     $('previous-id').value = reviewed.analyst_review.review_id;
     await history();
   } catch (error) { message(error.message); }
@@ -231,4 +241,56 @@ $('export-md').addEventListener('click', () => {
   if (!result) return;
   const escaped = JSON.stringify(result, null, 2).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('`', '&#96;');
   download('# Artemis v3 调查报告\n\n' + (result.report.synthetic || result.ruleset_synthetic ? '**合成演示数据**\n\n' : '') + '规则分数不是恶意性概率；最终结论由分析师复核。\n\n<pre>' + escaped + '</pre>\n', 'artemis-investigation.md', 'text/markdown');
+});
+
+function renderSemantic() {
+  const target = $('semantic-content'); target.replaceChildren(el('h2', '有证据引用的模型解释'));
+  $('use-suggestion').hidden = !result?.suggestion_file_b64;
+  if (result?.semantic_error) {
+    target.append(el('div', result.semantic_error, 'warning'), el('p', '来源证据和规则分数保留，可继续人工调查。', 'muted')); return;
+  }
+  const explanation = result?.semantic_review;
+  if (!explanation) { target.append(el('p', modelConfig.model_enabled ? '点击“本地模型解释”开始。可先勾选最多 32 条证据；系统会保留关键规则的代表证据。' : '未配置模型，离线调查与复核仍可使用。', 'muted')); return; }
+  target.append(el('p', '模型：' + explanation.model + ' · 已发送 ' + explanation.supplied_evidence_ids.length + ' / ' + explanation.total_evidence_count + ' 条证据。', 'muted'));
+  target.append(el('div', '引用仅校验了证据存在；模型概括和推测的真实性仍需人工核对。', 'warning'));
+  if (explanation.omitted_evidence_count) target.append(el('div', '有 ' + explanation.omitted_evidence_count + ' 条证据未进入模型上下文；不可据此排除其他行为。', 'warning'));
+  const byId = new Map(result.report.evidence.map(item => [item.evidence_id, item]));
+  for (const [key, title] of [['source_observations', '来源观察 · 模型概括'], ['hypotheses', '待验证推测']]) {
+    target.append(el('h2', title));
+    if (!explanation[key].length) target.append(el('p', '模型未提供该类条目。', 'muted'));
+    for (const entry of explanation[key]) {
+      const card = el('div', undefined, 'panel'); card.append(el('p', entry.text));
+      if (entry.verification) card.append(el('p', '验证方法：' + entry.verification));
+      for (const ref of entry.evidence_refs) if (byId.has(ref)) card.append(evidenceLink(byId.get(ref)));
+      target.append(card);
+    }
+  }
+  target.append(el('h2', '局限与后续核查'));
+  for (const limitation of explanation.limitations) target.append(el('p', limitation, 'muted'));
+  if (explanation.proposal_review) target.append(el('div', '模型提出了校正建议，尚未应用。可送交人工复核。', 'warning'));
+}
+$('explain').addEventListener('click', async () => {
+  if (!result || busy) return;
+  setBusy(true); message();
+  try {
+    const response = await api('/api/explain', { ...inputs, ...(selected.size ? { explanation_evidence_ids: [...selected] } : {}) });
+    result = { ...result, model_status: response.model_status, semantic_review: response.semantic_review || null,
+      semantic_error: response.semantic_error || null, suggestion_file_b64: response.suggestion_file_b64 || null };
+    renderSemantic(); showTab('semantic');
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+$('use-suggestion').addEventListener('click', async () => {
+  if (!result?.suggestion_file_b64 || busy) return;
+  setBusy(true); message();
+  const previous = result;
+  try {
+    const proposedInputs = { ...inputs, proposal: previous.suggestion_file_b64 };
+    const response = await api('/api/analyze', proposedInputs);
+    inputs = proposedInputs;
+    result = { ...response, model_status: 'completed', semantic_review: previous.semantic_review, suggestion_file_b64: previous.suggestion_file_b64 };
+    $('proposal-file').value = ''; $('input-status').textContent = '当前建议来自本地模型，待人工复核';
+    selected.clear(); render(); showTab('review');
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
 });

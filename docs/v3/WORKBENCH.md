@@ -9,7 +9,9 @@ python -m artemis_v3.workbench
 
 Open the printed `http://127.0.0.1:8765` address. Use **加载离线演示** to load the
 bundled synthetic report and rules. These are demonstration assertions, not a real
-malware analysis. No model is configured and no AI explanation is generated.
+malware analysis. By default no model is configured and no AI explanation is generated.
+An [opt-in local Ollama adapter](SEMANTIC.md) is now available with explicit
+generation, evidence references and analyst review of any adjustment suggestion.
 
 To enable explicit local review persistence, select a database path at startup:
 
@@ -90,6 +92,8 @@ Real-browser smoke tests run in CI with pinned Playwright tooling installed only
 on the runner. The test covers desktop/mobile views, process links, timeline,
 evidence selection, persisted reviews, JSON export and hostile text remaining
 inert. Screenshots are uploaded as the `workbench-browser-screenshots` artifact.
+A second flow uses a test-only Ollama HTTP fixture to check explanation, explicit
+proposal intake, rejection and export without changing the rule score.
 A failed browser job must be investigated even when Python unit tests pass.
 
 This environment's browser binary download returned HTML rather than an archive;

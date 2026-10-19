@@ -113,3 +113,6 @@ nav button{white-space:nowrap;font-size:12px}
 
 
 #process{overflow:auto}
+
+#semantic-content .panel button{display:block;font-size:11px;margin-top:6px;background:#eef5f5;color:#126a77;border:1px solid #cddade;max-width:100%;overflow-wrap:anywhere}
+.actions{flex-wrap:wrap}

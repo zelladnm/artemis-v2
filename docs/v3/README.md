@@ -29,7 +29,9 @@ Live lookup is **opt-in** and submits the entered indicator to VirusTotal. Do no
 - cli.py: command-line interface with JSON and Markdown output.
 - tests/test_v3.py: network-free regression tests.
 
-AI and sandboxing remain optional **future adapters**, not installation requirements. This alpha makes no claim of malware-verdict accuracy.
+AI is available through an opt-in local workbench adapter; sandboxing remains a
+future adapter. Neither is an installation requirement. This alpha makes no
+claim of malware-verdict accuracy.
 
 ## Proposed follow-up milestones
 
@@ -55,4 +57,5 @@ Run `python -m artemis_v3.workbench` and open the printed loopback address. Load
 synthetic demo to inspect process relationships, timelines and source evidence.
 [Workbench documentation](WORKBENCH.md) covers optional rule/suggestion imports,
 explicit local analyst review persistence and report exports. No model or sandbox
-is required; model explanations are not yet implemented.
+is required. [Local model explanations](SEMANTIC.md) can be enabled explicitly;
+they retain evidence references and send any adjustment through analyst review.
