@@ -191,8 +191,9 @@ function renderReview() {
   if (packet) {
     const proposal = packet.adjustment_proposal;
     selected = new Set(proposal.cited_evidence); $('delta').value = proposal.proposed_delta; $('rationale').value = proposal.rationale;
-    target.append(el('div', proposal.status === 'blocked_critical_signal' ? '关键规则信号：负向校正建议不能获批。' : '已校验建议来源；尚未记录人工决定。', 'warning'));
-    target.append(el('pre', JSON.stringify(packet, null, 2))); renderEvidence();
+    const notice = el('div', proposal.status === 'blocked_critical_signal' ? '关键规则信号：负向校正建议不能获批。' : '已校验建议来源；尚未记录人工决定。', 'warning');
+    notice.id = 'proposal-decision'; target.append(notice);
+    target.append(el('p', '建议导入时的校验结果（人工决定见下方记录）：', 'muted'), el('pre', JSON.stringify(packet, null, 2))); renderEvidence();
   } else { $('delta').value = 0; $('rationale').value = ''; }
   $('review-status').textContent = !reviewEnabled ? '当前为只读模式。启动时配置 --review-db 后可保存本地复核历史。' : !result.rule_assessment ? '请先加载规则集。' : '身份为本地声明。保存操作会向本地数据库追加记录。';
   updateCitations(); setBusy(busy);
@@ -210,6 +211,7 @@ $('review-form').addEventListener('submit', async event => {
     result = { ...reviewed, semantic_review: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64 };
     if (result.semantic_review) result.model_status = 'completed';
     $('review-result').textContent = '已保存：' + reviewed.analyst_review.review_id + ' · 规则原始分数保持 ' + reviewed.analyst_review.base_score;
+    if ($('proposal-decision')) $('proposal-decision').textContent = '已保存人工决定：' + ({ approve: '批准建议', reject: '拒绝建议', defer: '暂缓决定' }[reviewed.analyst_review.decision]) + '。详见下方复核记录。';
     $('previous-id').value = reviewed.analyst_review.review_id;
     await history();
   } catch (error) { message(error.message); }

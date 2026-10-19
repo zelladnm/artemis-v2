@@ -100,6 +100,7 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       await page.locator('#submit-review').click();
       await page.waitForFunction(() => document.getElementById('review-result').textContent.includes('已保存'));
       await page.waitForFunction(() => document.querySelectorAll('#history-list .history-record').length === 2);
+      assert.match(await page.locator('#proposal-decision').textContent(), /已保存人工决定：拒绝建议/);
       const modelDownloadPromise = page.waitForEvent('download');
       await page.locator('#export-json').click();
       const modelExport = JSON.parse(fs.readFileSync(await (await modelDownloadPromise).path(), 'utf8'));
