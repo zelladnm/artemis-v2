@@ -15,6 +15,7 @@ from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
 from .scoring import assess_signatures
+from .semantic import OllamaLocalProvider, SemanticError, explain
 
 WEB = Path(__file__).parent / 'web'
 MAX_HTTP_BYTES = 15 * 1024 * 1024
@@ -68,7 +69,8 @@ class WorkbenchServer(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
 
-    def __init__(self, port=8765, *, review_db=None):
+    def __init__(self, port=8765, *, review_db=None, semantic_provider=None):
+        self.semantic_provider = semantic_provider
         self.token = secrets.token_urlsafe(32)
         self.review_db = Path(review_db).resolve() if review_db else None
         super().__init__(('127.0.0.1', port), WorkbenchHandler)
@@ -124,6 +126,10 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 body = body.replace(b'__ARTEMIS_TOKEN__', self.server.token.encode()).replace(
                     b'__REVIEW_ENABLED__', b'true' if self.server.review_db else b'false')
             return self._send(200, body, mime)
+        if self.path == '/api/config':
+            return self._send(200, {'model_enabled': self.server.semantic_provider is not None,
+                                    'model': self.server.semantic_provider.model if self.server.semantic_provider else None,
+                                    'review_enabled': self.server.review_db is not None})
         if self.path == '/api/demo':
             return self._send(200, {'report': base64.b64encode((WEB / 'demo/report.json').read_bytes()).decode(),
                                     'ruleset': base64.b64encode((WEB / 'demo/ruleset.json').read_bytes()).decode(),
@@ -143,7 +149,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         self.close_connection = True
         if not self._allowed(api=True):
             return self._send(403, {'error': 'Local origin or request token rejected'})
-        if self.path not in ('/api/analyze', '/api/review'):
+        if self.path not in ('/api/analyze', '/api/review', '/api/explain'):
             return self._send(404, {'error': 'Not found'})
         lengths = self.headers.get_all('Content-Length', [])
         if (len(lengths) != 1 or len(lengths[0]) > 9 or not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -158,6 +164,18 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 raise ValueError('Incomplete request body')
             payload = json.loads(raw, object_pairs_hook=_pairs)
             result, report, catalog, packet = investigate_payload(payload)
+            if self.server.semantic_provider is not None:
+                result['model_status'] = 'configured'
+            if self.path == '/api/explain':
+                if self.server.semantic_provider is None:
+                    return self._send(409, {'error': 'Start with --ollama-model to enable explicit local explanations'})
+                try:
+                    explanation, suggestion = explain(report, self.server.semantic_provider, catalog=catalog,
+                                                       evidence_ids=payload.get('explanation_evidence_ids'))
+                    result.update(model_status='completed', semantic_review=explanation,
+                                  suggestion_file_b64=base64.b64encode(suggestion).decode() if suggestion else None)
+                except SemanticError as exc:
+                    result.update(model_status='failed', semantic_error=str(exc))
             if self.path == '/api/review':
                 if not self.server.review_db or catalog is None:
                     return self._send(409, {'error': 'Review requires a ruleset and startup --review-db'})
@@ -175,10 +193,17 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Artemis v3 local investigation workbench')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--review-db', help='Explicit local SQLite history destination; omit for read-only investigation')
+    parser.add_argument('--ollama-model', help='Explicit installed local Ollama model; never auto-pulled')
+    parser.add_argument('--ollama-port', type=int, default=11434)
+    parser.add_argument('--model-timeout', type=float, default=60)
     args = parser.parse_args(argv)
     if not 0 <= args.port <= 65535:
         parser.error('Port must be between 0 and 65535')
-    with WorkbenchServer(args.port, review_db=args.review_db) as server:
+    try:
+        provider = OllamaLocalProvider(args.ollama_model, port=args.ollama_port, timeout=args.model_timeout) if args.ollama_model else None
+    except ValueError as exc:
+        parser.error(str(exc))
+    with WorkbenchServer(args.port, review_db=args.review_db, semantic_provider=provider) as server:
         print(f'Artemis v3 workbench: {server.origin}', flush=True)
         try:
             server.serve_forever()

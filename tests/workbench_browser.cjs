@@ -10,7 +10,9 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'artemis-ui-'));
   const artifacts = process.env.ARTEMIS_UI_ARTIFACTS || path.join(temporary, 'screenshots');
   fs.mkdirSync(artifacts, { recursive: true });
-  const child = spawn(process.env.ARTEMIS_PYTHON || 'python', ['-m', 'artemis_v3.workbench', '--port', '0',
+  const semantic = process.env.ARTEMIS_BROWSER_SEMANTIC === '1';
+  const serverArgs = semantic ? ['tests/serve_semantic_workbench.py'] : ['-m', 'artemis_v3.workbench', '--port', '0'];
+  const child = spawn(process.env.ARTEMIS_PYTHON || 'python', [...serverArgs,
     '--review-db', path.join(temporary, 'reviews.sqlite')], { stdio: ['ignore', 'pipe', 'pipe'] });
   let browser, page;
   try {
@@ -32,10 +34,11 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.goto(origin);
+    if (semantic) await page.waitForFunction(() => document.getElementById('model-note').textContent.includes('已配置'));
     await page.locator('#demo').click();
     await page.locator('#case').waitFor({ state: 'visible' });
     assert.match(await page.locator('#metrics').textContent(), /1 \/ 10/);
-    assert.match(await page.locator('#overview').textContent(), /模型尚未接入/);
+    assert.match(await page.locator('#overview').textContent(), semantic ? /本地模型已配置/ : /模型尚未接入/);
     await page.screenshot({ path: path.join(artifacts, 'workbench-desktop.png'), fullPage: true });
 
     await page.locator('[data-tab="process"]').click();
@@ -82,6 +85,29 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(artifacts, 'workbench-mobile.png'), fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile document must not overflow horizontally');
+    if (semantic) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.locator('#explain').click();
+      await page.waitForFunction(() => document.getElementById('semantic-content').textContent.includes('test:latest'));
+      assert.match(await page.locator('#semantic-content').textContent(), /来源观察/);
+      assert.match(await page.locator('#semantic-content').textContent(), /待验证推测/);
+      await page.screenshot({ path: path.join(artifacts, 'semantic-explanation.png'), fullPage: true });
+      await page.locator('#use-suggestion').click();
+      await page.waitForFunction(() => document.getElementById('rationale').readOnly);
+      assert.equal(await page.locator('#delta').inputValue(), '-1');
+      await page.locator('#reason').fill('Synthetic model suggestion rejected after review');
+      await page.locator('#decision').selectOption('reject');
+      await page.locator('#submit-review').click();
+      await page.waitForFunction(() => document.getElementById('review-result').textContent.includes('已保存'));
+      await page.waitForFunction(() => document.querySelectorAll('#history-list .history-record').length === 2);
+      const modelDownloadPromise = page.waitForEvent('download');
+      await page.locator('#export-json').click();
+      const modelExport = JSON.parse(fs.readFileSync(await (await modelDownloadPromise).path(), 'utf8'));
+      assert.equal(modelExport.semantic_review.model, 'test:latest');
+      assert.equal(modelExport.rule_assessment.base_score, 1);
+      assert.equal(modelExport.analyst_review.decision, 'reject');
+      assert.equal(modelExport.analyst_review.external_proposal_sha256, modelExport.semantic_review.proposal_review.proposal_sha256);
+    }
     assert.deepEqual(errors, []);
     console.log('PASS: desktop/mobile demo, process links, timeline, citations, persisted review, export and hostile text');
   } finally {

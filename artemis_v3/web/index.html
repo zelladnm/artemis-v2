@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script>
 </head>
 <body>
-<aside class="rail"><a class="brand" href="/">A<span>ARTEMIS<small>INVESTIGATION / v3</small></span></a><div class="rail-label">调查空间</div><div class="rail-item active">◈ 报告调查</div><div class="rail-note"><span class="live-dot"></span> 本地离线处理<br><small>模型尚未接入<br>分析结论由人工复核</small></div></aside>
+<aside class="rail"><a class="brand" href="/">A<span>ARTEMIS<small>INVESTIGATION / v3</small></span></a><div class="rail-label">调查空间</div><div class="rail-item active">◈ 报告调查</div><div class="rail-note"><span class="live-dot"></span> 本地离线处理<br><small><span id="model-note">模型未配置</span><br>分析结论由人工复核</small></div></aside>
 <main>
 <header><span>工作空间 <b>/</b> 恶意代码行为调查</span><span class="badge">LITE · PREVIEW</span></header>
 <section class="heading"><div><div class="eyebrow">EVIDENCE BEFORE CONCLUSIONS</div><h1>调查工作台</h1><p>整理行为证据，保留每一步研判依据。</p></div><button id="demo" class="secondary">加载离线演示 ↗</button></section>
@@ -19,11 +19,12 @@
 <div id="message" role="status" aria-live="polite"></div>
 <section id="empty" class="empty"><div class="empty-symbol">◈</div><h2>从一份行为报告开始</h2><p>导入已生成的 CAPE 报告，查看进程、网络活动和可追溯证据。<br>文件仅发送给本机工作台；本流程不运行样本。</p></section>
 <div id="case" hidden>
-<div class="case-top"><div><span id="synthetic-badge" class="badge amber" hidden>合成演示数据</span><span id="case-status"></span><code id="fingerprint"></code></div><div class="actions"><button id="export-json" class="secondary">导出 JSON</button><button id="export-md" class="secondary">导出 Markdown</button></div></div>
+<div class="case-top"><div><span id="synthetic-badge" class="badge amber" hidden>合成演示数据</span><span id="case-status"></span><code id="fingerprint"></code></div><div class="actions"><button id="explain" disabled>本地模型解释</button><button id="export-json" class="secondary">导出 JSON</button><button id="export-md" class="secondary">导出 Markdown</button></div></div>
 <section id="metrics" class="metrics"></section>
-<nav id="tabs" aria-label="调查视图"><button data-tab="overview" class="selected">调查概览</button><button data-tab="process">进程树</button><button data-tab="timeline">行为时间线</button><button data-tab="evidence">证据浏览</button><button data-tab="review">人工复核</button></nav>
+<nav id="tabs" aria-label="调查视图"><button data-tab="overview" class="selected">调查概览</button><button data-tab="process">进程树</button><button data-tab="timeline">行为时间线</button><button data-tab="evidence">证据浏览</button><button data-tab="semantic">模型解释</button><button data-tab="review">人工复核</button></nav>
 <section id="overview" class="view"></section><section id="process" class="view" hidden></section><section id="timeline" class="view" hidden></section>
 <section id="evidence" class="view" hidden><div class="toolbar"><input id="search" placeholder="检索 API、域名、路径或 JSON 位置" aria-label="检索证据"><select id="category" aria-label="证据类型"><option value="">全部类型</option></select></div><p id="evidence-count" class="muted"></p><div id="evidence-list"></div></section>
+<section id="semantic" class="view" hidden><div id="semantic-content"></div><button id="use-suggestion" hidden>将此建议送人工复核</button></section>
 <section id="review" class="view" hidden><div id="proposal-summary"></div><form id="review-form"><h2>记录人工复核</h2><p id="review-status" class="muted"></p><div class="form-grid"><label>复核人<input id="reviewer" maxlength="100" required placeholder="本地声明身份"></label><label>决定<select id="decision"><option value="defer">暂缓，补充证据</option><option value="reject">拒绝建议</option><option value="approve">批准建议</option></select></label><label>校正值（−10 至 10）<input id="delta" type="number" min="-10" max="10" value="0" required></label><label>上一条复核 ID<input id="previous-id" placeholder="首次留空；修订时从历史复制"></label></div><label>建议理由<textarea id="rationale" maxlength="500" required placeholder="解释为何提出这个校正建议"></textarea></label><label>复核理由<textarea id="reason" maxlength="1000" required placeholder="记录支持此决定的依据与仍待确认的问题"></textarea></label><p id="citation-status" class="muted">到“证据浏览”勾选 1–32 条来源证据。</p><button id="submit-review">保存复核记录</button><p id="review-result" role="status"></p></form><div class="history-title"><h2>本地复核历史</h2><button id="history" type="button" class="secondary">刷新历史</button></div><div id="history-list"></div></section>
 </div>
 <footer>Artemis v3 · 证据是来源陈述，规则分数不是恶意性概率。原始报告与规则集请另行保留。</footer>
