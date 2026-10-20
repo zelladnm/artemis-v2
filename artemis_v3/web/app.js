@@ -8,6 +8,10 @@ let modelConfig = { model_enabled: false };
 function updateModelControls() {
   $('explain').disabled = busy || !result || !modelConfig.model_enabled;
   $('model-note').textContent = modelConfig.model_enabled ? '本地模型已配置' : '模型未配置';
+  $('archive-save').disabled = busy || !result || !modelConfig.archive_enabled;
+  for (const id of ['archive-recent', 'archive-search', 'archive-kind', 'archive-sha', 'archive-title']) $(id).disabled = busy || !modelConfig.archive_enabled;
+  for (const node of $('archive-list').querySelectorAll('button')) node.disabled = busy;
+  $('archive-note').textContent = modelConfig.archive_enabled ? '归档已启用。点击“归档来源”后写入本地存储。' : '启动时配置 --case-db 后可保存和重新打开报告。';
 }
 api('/api/config').then(config => { modelConfig = config; updateModelControls(); }).catch(() => {});
 function el(tag, text, className) {
@@ -94,7 +98,8 @@ function render() {
   const report = result.report, evidence = report.evidence, assessment = result.rule_assessment;
   $('synthetic-badge').hidden = !report.synthetic && !result.ruleset_synthetic;
   $('case-status').textContent = report.status === 'partial' ? '解析完成 · 存在覆盖缺口' : '报告已解析';
-  $('fingerprint').textContent = 'SHA-256  ' + report.source_sha256;
+  $('fingerprint').textContent = '报告 SHA-256  ' + report.source_sha256;
+  $('sample-fingerprint').textContent = result.source_identity?.sample_sha256 ? '报告声明的样本 SHA-256  ' + result.source_identity.sample_sha256 : '报告未提供有效的目标样本 SHA-256';
   $('metrics').replaceChildren();
   for (const [label, count, description] of [
     ['来源证据', evidence.length, '每条记录可定位原始 JSON'],
@@ -292,5 +297,61 @@ $('use-suggestion').addEventListener('click', async () => {
     $('proposal-file').value = ''; $('input-status').textContent = '当前建议来自本地模型，待人工复核';
     selected.clear(); render(); showTab('review');
   } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+
+function renderArchives(response) {
+  const target = $('archive-list'); target.replaceChildren();
+  const kind = { recent: '最近归档', exact_sample_sha256: '按报告声明的样本 SHA-256 精确匹配', exact_report_sha256: '按报告原始字节 SHA-256 精确匹配' }[response.match_kind];
+  $('archive-matches').textContent = kind + ' · 显示 ' + response.cases.length + ' 条（最多 ' + response.limit + ' 条）。';
+  if (!response.cases.length) target.append(el('p', '没有找到归档记录。', 'muted'));
+  for (const item of response.cases) {
+    const card = el('div', undefined, 'archive-record');
+    card.append(el('strong', item.title));
+    if (item.synthetic || item.ruleset_synthetic) card.append(el('span', '合成数据', 'pill'));
+    card.append(el('code', '报告：' + item.report_sha256), el('code', '报告声明的样本：' + (item.sample_sha256 || '未提供有效 SHA-256')),
+      el('p', item.created_at + ' · 归档时 ' + item.evidence_count + ' 条来源证据', 'muted'));
+    const button = el('button', '重新打开', 'secondary'); button.type = 'button';
+    button.addEventListener('click', async () => {
+      if (busy) return;
+      setBusy(true); message();
+      try {
+        const opened = await api('/api/cases/open', { case_id: item.case_id });
+        inputs = opened.inputs; result = { ...opened.result, archived_case: opened.archived_case }; selected.clear();
+        for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
+        $('synthetic').checked = inputs.synthetic;
+        $('input-status').textContent = '已从本地归档恢复报告与规则';
+        $('archive-status').textContent = '已重新打开：' + item.title;
+        render(); showTab('overview');
+      } catch (error) { message(error.message); }
+      finally { setBusy(false); }
+    });
+    card.append(button); target.append(card);
+  }
+}
+$('archive-save').addEventListener('click', async () => {
+  if (!result || busy) return;
+  setBusy(true); message();
+  try {
+    const saved = await api('/api/cases/save', { report: inputs.report, ruleset: inputs.ruleset, synthetic: Boolean(inputs.synthetic), archive_title: $('archive-title').value });
+    result.archived_case = saved.case;
+    $('archive-status').textContent = (saved.created ? '归档已保存：' : '归档已存在：') + saved.case.title;
+    $('archive-panel').open = true;
+    renderArchives(await api('/api/cases'));
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+$('archive-recent').addEventListener('click', async () => {
+  if (busy) return;
+  setBusy(true); message();
+  try { renderArchives(await api('/api/cases')); }
+  catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+$('archive-search-form').addEventListener('submit', async event => {
+  event.preventDefault(); if (busy) return;
+  setBusy(true); message();
+  try { renderArchives(await api('/api/cases/search', { kind: $('archive-kind').value, sha256: $('archive-sha').value.trim() })); }
+  catch (error) { message(error.message); }
   finally { setBusy(false); }
 });

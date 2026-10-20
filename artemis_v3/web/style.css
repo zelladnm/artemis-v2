@@ -115,4 +115,13 @@ nav button{white-space:nowrap;font-size:12px}
 #process{overflow:auto}
 
 #semantic-content .panel button{display:block;font-size:11px;margin-top:6px;background:#eef5f5;color:#126a77;border:1px solid #cddade;max-width:100%;overflow-wrap:anywhere}
-.actions{flex-wrap:wrap}
+.actions{flex-wrap:wrap;max-width:100%}
+.archive-panel{border:1px solid var(--line);background:white;border-radius:7px;padding:14px 20px;margin:16px 0}
+.archive-panel>summary{cursor:pointer;font-weight:600;color:var(--blue)}
+.archive-panel>label input{display:block;width:100%;margin:6px 0 14px}
+#archive-search-form{margin:14px 0}
+#archive-search-form input{min-width:0}
+.archive-record{border-top:1px solid var(--line);padding:15px 0;overflow-wrap:anywhere}
+.archive-record code{display:block;font-size:10px;color:var(--muted)}
+.archive-record .pill{margin-left:10px}
+.archive-record p{font-size:11px}
