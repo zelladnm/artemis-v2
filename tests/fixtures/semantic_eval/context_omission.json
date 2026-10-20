@@ -1,0 +1,328 @@
+{
+  "signatures": [
+    {
+      "name": "synthetic_context_0",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_1",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_2",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_3",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_4",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_5",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_6",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_7",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_8",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_9",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_10",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_11",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_12",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_13",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_14",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_15",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_16",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_17",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_18",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_19",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_20",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_21",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_22",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_23",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_24",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_25",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_26",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_27",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_28",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_29",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_30",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_31",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_32",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_33",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_34",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_35",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_36",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_37",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_38",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_39",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_40",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_41",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_42",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_43",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_44",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_45",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_46",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_47",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_48",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_49",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_50",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_51",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_52",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_53",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_54",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_55",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_56",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_57",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_58",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_59",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_60",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_61",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_62",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_63",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_64",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_65",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_66",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_67",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_68",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_69",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_70",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_71",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_72",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_73",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_74",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_75",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_76",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_77",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_78",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_context_79",
+      "description": "Synthetic repeated observation, no verdict."
+    },
+    {
+      "name": "synthetic_critical_assertion",
+      "description": "Synthetic critical source assertion after the context-record budget."
+    }
+  ]
+}

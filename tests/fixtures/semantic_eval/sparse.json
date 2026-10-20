@@ -1,0 +1,14 @@
+{
+  "behavior": {
+    "processes": [
+      {
+        "process_id": 100,
+        "parent_id": 0,
+        "process_name": "unknown-synthetic.exe",
+        "first_seen": "2026-01-01 10:00:00",
+        "calls": []
+      }
+    ]
+  },
+  "signatures": []
+}

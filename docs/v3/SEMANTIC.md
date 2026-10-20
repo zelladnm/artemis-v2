@@ -98,3 +98,8 @@ Model-specific compatibility, latency, explanation quality and factual support
 remain unmeasured. Next: build an independently labelled, sanitized evaluation
 set and run a pinned local model with report/model/rules/prompt fingerprints,
 checking citation support and dangerous downscoring as well as schema success.
+
+The [evaluation CLI](EVALUATION.md) now supports fingerprint-bound suites, pinned
+local models, synthetic offline replay, repeated attempts and a separate human
+support-review template. Its bundled synthetic scenarios are engineering
+regressions, not the independent corpus or real-model quality validation above.

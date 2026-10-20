@@ -202,6 +202,7 @@ class OllamaTransportTests(unittest.TestCase):
         for model in ('', 'https://external.invalid', 'test:cloud', 'test-cloud', '../x', True):
             with self.subTest(model=model), self.assertRaises(ValueError):
                 OllamaLocalProvider(model)
-        for values in ({'port': 0}, {'port': True}, {'timeout': float('nan')}, {'timeout': 61}, {'timeout': True}):
+        for values in ({'port': 0}, {'port': True}, {'timeout': float('nan')}, {'timeout': 61}, {'timeout': True},
+                       {'expected_digest': 'invalid'}, {'expected_digest': True}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 OllamaLocalProvider('test', **values)
