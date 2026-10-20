@@ -59,3 +59,7 @@ synthetic demo to inspect process relationships, timelines and source evidence.
 explicit local analyst review persistence and report exports. No model or sandbox
 is required. [Local model explanations](SEMANTIC.md) can be enabled explicitly;
 they retain evidence references and send any adjustment through analyst review.
+
+[Semantic evaluation](EVALUATION.md) runs fixed suites with synthetic replay or an
+explicit pinned local model, records failures and produces human support-review
+templates. Technical acceptance is kept separate from explanation quality.

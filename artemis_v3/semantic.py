@@ -201,7 +201,7 @@ def explain(report, provider: ExplanationProvider, *, catalog=None, evidence_ids
 
 class OllamaLocalProvider:
     """Fixed loopback transport; no proxy, redirects, pulls, tools or cloud endpoints."""
-    def __init__(self, model, *, port=11434, timeout=60):
+    def __init__(self, model, *, port=11434, timeout=60, expected_digest=None):
         if (not isinstance(model, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_./:-]{0,127}', model) or
                 '://' in model or model.lower().endswith((':cloud', '-cloud'))):
             raise ValueError('Provide an installed local Ollama model name')
@@ -209,6 +209,10 @@ class OllamaLocalProvider:
             raise ValueError('Ollama port must be between 1 and 65535')
         if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError('Model timeout must be between 0 and 60 seconds')
+        if expected_digest is not None and (not isinstance(expected_digest, str) or
+                not re.fullmatch(r'(?:sha256:)?[0-9a-f]{64}', expected_digest)):
+            raise ValueError('Expected model digest must be a SHA-256 artifact digest')
+        self.expected_digest = expected_digest.removeprefix('sha256:') if expected_digest else None
         self.model = model if ':' in model else model + ':latest'
         self.port, self.timeout = port, timeout
         self._slot = BoundedSemaphore(1)
@@ -270,6 +274,8 @@ class OllamaLocalProvider:
         digest = entry.get('digest')
         if not isinstance(digest, str) or not re.fullmatch(r'(?:sha256:)?[0-9a-f]{64}', digest):
             raise SemanticError('Local model has no valid artifact digest')
+        if self.expected_digest and digest.removeprefix('sha256:') != self.expected_digest:
+            raise SemanticError('Local model artifact differs from the pinned digest; report content was not sent')
         if not isinstance(metadata.get('model_info'), dict) or not metadata['model_info']:
             raise SemanticError('Local model details are incomplete; report content was not sent')
         response, raw = self._request('chat', {

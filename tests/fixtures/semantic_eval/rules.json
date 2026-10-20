@@ -1,0 +1,18 @@
+{
+  "version": "synthetic-evaluation/1",
+  "synthetic": true,
+  "rules": [
+    {
+      "rule_id": "EVAL-INSTALL",
+      "signature_name": "synthetic_installer_activity",
+      "points": 6,
+      "critical": false
+    },
+    {
+      "rule_id": "EVAL-CRITICAL",
+      "signature_name": "synthetic_critical_assertion",
+      "points": 8,
+      "critical": true
+    }
+  ]
+}

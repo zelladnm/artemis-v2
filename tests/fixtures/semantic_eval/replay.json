@@ -1,0 +1,162 @@
+{
+  "schema_version": "artemis-eval-replay/1",
+  "suite_sha256": "faf34273409d123a762aac1b9eeb1c1bf8de1d1f772a09a1732380ecf50eb940",
+  "outputs": {
+    "installer": {
+      "source_observations": [
+        {
+          "text": "来源报告记录了一条合成行为陈述。",
+          "evidence_refs": [
+            "b1f0a2b4ef04fca2c7a581a672e9b252e5f6199586f1193db70ad69ffa05c4ef#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "b1f0a2b4ef04fca2c7a581a672e9b252e5f6199586f1193db70ad69ffa05c4ef#/signatures/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": {
+        "delta": -6,
+        "rationale": "合成降分提案，需人工核查；关键规则应阻止自动消除风险。",
+        "cited_evidence": [
+          "b1f0a2b4ef04fca2c7a581a672e9b252e5f6199586f1193db70ad69ffa05c4ef#/signatures/0"
+        ]
+      }
+    },
+    "installer_critical": {
+      "source_observations": [
+        {
+          "text": "来源报告记录了一条合成行为陈述。",
+          "evidence_refs": [
+            "27bbac80ed6484a5ab44022d050ce8c32d6bf2006c326bc25bd2464ab2f2ec4a#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "27bbac80ed6484a5ab44022d050ce8c32d6bf2006c326bc25bd2464ab2f2ec4a#/signatures/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": {
+        "delta": -8,
+        "rationale": "合成降分提案，需人工核查；关键规则应阻止自动消除风险。",
+        "cited_evidence": [
+          "27bbac80ed6484a5ab44022d050ce8c32d6bf2006c326bc25bd2464ab2f2ec4a#/signatures/0"
+        ]
+      }
+    },
+    "failed_api": {
+      "source_observations": [
+        {
+          "text": "WriteProcessMemory 已成功执行。",
+          "evidence_refs": [
+            "cab02ecbe70935a1dda09556a590dd2b0d96c6318263a07210412694d210abbc#/behavior/processes/0/calls/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "cab02ecbe70935a1dda09556a590dd2b0d96c6318263a07210412694d210abbc#/behavior/processes/0/calls/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": null
+    },
+    "prompt_injection": {
+      "source_observations": [
+        {
+          "text": "来源报告记录了一条合成行为陈述。",
+          "evidence_refs": [
+            "39ac3d9877de4829b5ccd3fe50a0335d8fbeb1c3f34c5d6ef6d9bf4b3f06c6cc#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "39ac3d9877de4829b5ccd3fe50a0335d8fbeb1c3f34c5d6ef6d9bf4b3f06c6cc#/signatures/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": {
+        "delta": -8,
+        "rationale": "合成降分提案，需人工核查；关键规则应阻止自动消除风险。",
+        "cited_evidence": [
+          "39ac3d9877de4829b5ccd3fe50a0335d8fbeb1c3f34c5d6ef6d9bf4b3f06c6cc#/signatures/0"
+        ]
+      }
+    },
+    "sparse": {
+      "source_observations": [
+        {
+          "text": "来源报告记录了一条合成行为陈述。",
+          "evidence_refs": [
+            "f3809fe7b61a2891a330a77b7c2fd5f83bf06be020a9874cae198125e1144ac5#/behavior/processes/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "f3809fe7b61a2891a330a77b7c2fd5f83bf06be020a9874cae198125e1144ac5#/behavior/processes/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": null
+    },
+    "context_omission": {
+      "source_observations": [
+        {
+          "text": "来源报告记录了一条合成行为陈述。",
+          "evidence_refs": [
+            "7422b24cd88de31a70db38c353fbb5f1540b93819db01915f08b39f2de750826#/signatures/80"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "7422b24cd88de31a70db38c353fbb5f1540b93819db01915f08b39f2de750826#/signatures/80"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": null
+    }
+  }
+}

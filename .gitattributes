@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Evaluation manifests bind exact fixture bytes across operating systems.
+tests/fixtures/semantic_eval/*.json text eol=lf
