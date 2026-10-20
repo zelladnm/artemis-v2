@@ -5,12 +5,20 @@ const reviewEnabled = document.querySelector('meta[name="review-enabled"]').cont
 let inputs = {}, result = null, selected = new Set(), busy = false;
 const versions = {};
 let modelConfig = { model_enabled: false };
+let historicalSelection = null, archivedChoices = new Map();
+function historyEligible(item) {
+  return Boolean(item && result && modelConfig.model_enabled && result.source_identity?.sample_sha256 &&
+    item.sample_sha256 === result.source_identity.sample_sha256 && item.synthetic === result.report.synthetic &&
+    item.report_sha256 !== result.report.source_sha256);
+}
 function updateModelControls() {
   $('explain').disabled = busy || !result || !modelConfig.model_enabled;
   $('model-note').textContent = modelConfig.model_enabled ? '本地模型已配置' : '模型未配置';
   $('archive-save').disabled = busy || !result || !modelConfig.archive_enabled;
   for (const id of ['archive-recent', 'archive-search', 'archive-kind', 'archive-sha', 'archive-title']) $(id).disabled = busy || !modelConfig.archive_enabled;
-  for (const node of $('archive-list').querySelectorAll('button')) node.disabled = busy;
+  for (const node of $('archive-list').querySelectorAll('button')) node.disabled = busy ||
+    (node.classList.contains('archive-context') && !historyEligible(archivedChoices.get(node.dataset.caseId)));
+  if ($('clear-historical')) $('clear-historical').disabled = busy;
   $('archive-note').textContent = modelConfig.archive_enabled ? '归档已启用。点击“归档来源”后写入本地存储。' : '启动时配置 --case-db 后可保存和重新打开报告。';
 }
 api('/api/config').then(config => { modelConfig = config; updateModelControls(); }).catch(() => {});
@@ -42,10 +50,16 @@ async function api(path, data) {
 function clearCase() {
   result = null; selected.clear(); $('case').hidden = true; $('empty').hidden = false;
   $('review-result').textContent = ''; message();
+  updateModelControls();
+}
+function clearHistoricalSelection() {
+  historicalSelection = null; delete inputs.historical_case_id;
+  if (result) { delete result.semantic_review; delete result.semantic_error; delete result.suggestion_file_b64; result.model_status = modelConfig.model_enabled ? 'configured' : 'not_configured'; }
 }
 async function readFile(input, name, limit) {
   const version = versions[name] = (versions[name] || 0) + 1;
   clearCase(); delete inputs[name]; setBusy(busy);
+  if (name === 'report') clearHistoricalSelection();
   const file = input.files[0];
   if (!file) return;
   if (file.size > limit) { message('所选文件超过大小限制。'); return; }
@@ -63,7 +77,7 @@ async function readFile(input, name, limit) {
 for (const [id, name, limit] of [['report-file', 'report', 10 * 1024 ** 2], ['rules-file', 'ruleset', 64 * 1024], ['proposal-file', 'proposal', 32 * 1024]]) {
   $(id).addEventListener('change', () => readFile($(id), name, limit));
 }
-$('synthetic').addEventListener('change', () => { inputs.synthetic = $('synthetic').checked; clearCase(); });
+$('synthetic').addEventListener('change', () => { inputs.synthetic = $('synthetic').checked; clearHistoricalSelection(); clearCase(); });
 async function analyze() {
   message(); setBusy(true);
   try { result = await api('/api/analyze', inputs); selected.clear(); render(); showTab('overview'); }
@@ -75,6 +89,7 @@ $('demo').addEventListener('click', async () => {
   clearCase(); setBusy(true);
   try {
     inputs = await api('/api/demo');
+    clearHistoricalSelection();
     for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
     $('synthetic').checked = true;
     $('input-status').textContent = '内置合成演示报告与规则';
@@ -250,23 +265,41 @@ $('export-md').addEventListener('click', () => {
 
 function renderSemantic() {
   const target = $('semantic-content'); target.replaceChildren(el('h2', '有证据引用的模型解释'));
+  if (historicalSelection) {
+    const selection = el('div', undefined, 'panel');
+    selection.append(el('p', '已选择历史对照：' + historicalSelection.title), el('code', historicalSelection.report_sha256),
+      el('p', '仅在点击“本地模型解释”后发送受限历史证据。同一样本哈希是报告声明，历史行为不等同于当前行为。', 'muted'));
+    const clear = el('button', '移除历史对照', 'secondary'); clear.id = 'clear-historical'; clear.type = 'button'; clear.disabled = busy;
+    clear.addEventListener('click', () => { if (busy) return; clearHistoricalSelection(); renderSemantic(); });
+    selection.append(clear); target.append(selection);
+  }
   $('use-suggestion').hidden = !result?.suggestion_file_b64;
   if (result?.semantic_error) {
     target.append(el('div', result.semantic_error, 'warning'), el('p', '来源证据和规则分数保留，可继续人工调查。', 'muted')); return;
   }
   const explanation = result?.semantic_review;
-  if (!explanation) { target.append(el('p', modelConfig.model_enabled ? '点击“本地模型解释”开始。可先勾选最多 32 条证据；系统会保留关键规则的代表证据。' : '未配置模型，离线调查与复核仍可使用。', 'muted')); return; }
-  target.append(el('p', '模型：' + explanation.model + ' · 已发送 ' + explanation.supplied_evidence_ids.length + ' / ' + explanation.total_evidence_count + ' 条证据。', 'muted'));
+  if (!explanation) { target.append(el('p', modelConfig.model_enabled ? (historicalSelection ? '点击“本地模型解释”开始。历史对照模式为当前证据预留 24 条容量；关键规则代表证据必须保留。' : '点击“本地模型解释”开始。可先勾选最多 32 条证据；关键规则代表证据必须保留。') : '未配置模型，离线调查与复核仍可使用。', 'muted')); return; }
+  target.append(el('p', '模型：' + explanation.model + ' · 当前证据已发送 ' + explanation.supplied_evidence_ids.length + ' / ' + explanation.total_evidence_count + ' 条。', 'muted'));
+  const historical = explanation.historical_context;
+  if (historical) target.append(el('div', '历史来源：' + historical.report_sha256 + ' · 已发送 ' + historical.evidence.length + ' / ' + historical.total_evidence_count + ' 条，遗漏 ' + historical.omitted_evidence_count + ' 条。样本身份仅由报告声明关联。', 'warning'));
   target.append(el('div', '引用仅校验了证据存在；模型概括和推测的真实性仍需人工核对。', 'warning'));
   if (explanation.omitted_evidence_count) target.append(el('div', '有 ' + explanation.omitted_evidence_count + ' 条证据未进入模型上下文；不可据此排除其他行为。', 'warning'));
   const byId = new Map(result.report.evidence.map(item => [item.evidence_id, item]));
+  const historicalById = new Map((historical?.evidence || []).map(item => [item.evidence_id, item]));
   for (const [key, title] of [['source_observations', '来源观察 · 模型概括'], ['hypotheses', '待验证推测']]) {
     target.append(el('h2', title));
     if (!explanation[key].length) target.append(el('p', '模型未提供该类条目。', 'muted'));
     for (const entry of explanation[key]) {
       const card = el('div', undefined, 'panel'); card.append(el('p', entry.text));
       if (entry.verification) card.append(el('p', '验证方法：' + entry.verification));
-      for (const ref of entry.evidence_refs) if (byId.has(ref)) card.append(evidenceLink(byId.get(ref)));
+      for (const ref of entry.evidence_refs) {
+        if (byId.has(ref)) { const link = evidenceLink(byId.get(ref)); link.textContent = '当前来源 · ' + link.textContent; card.append(link); }
+        if (historicalById.has(ref)) {
+          const details = el('details', undefined, 'historical-evidence');
+          details.append(el('summary', '历史来源 · ' + historicalById.get(ref).source_pointer),
+            el('pre', JSON.stringify(historicalById.get(ref), null, 2))); card.append(details);
+        }
+      }
       target.append(card);
     }
   }
@@ -302,6 +335,7 @@ $('use-suggestion').addEventListener('click', async () => {
 
 function renderArchives(response) {
   const target = $('archive-list'); target.replaceChildren();
+  archivedChoices = new Map(response.cases.map(item => [item.case_id, item]));
   const kind = { recent: '最近归档', exact_sample_sha256: '按报告声明的样本 SHA-256 精确匹配', exact_report_sha256: '按报告原始字节 SHA-256 精确匹配' }[response.match_kind];
   $('archive-matches').textContent = kind + ' · 显示 ' + response.cases.length + ' 条（最多 ' + response.limit + ' 条）。';
   if (!response.cases.length) target.append(el('p', '没有找到归档记录。', 'muted'));
@@ -318,6 +352,7 @@ function renderArchives(response) {
       try {
         const opened = await api('/api/cases/open', { case_id: item.case_id });
         inputs = opened.inputs; result = { ...opened.result, archived_case: opened.archived_case }; selected.clear();
+        historicalSelection = null;
         for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
         $('synthetic').checked = inputs.synthetic;
         $('input-status').textContent = '已从本地归档恢复报告与规则';
@@ -326,7 +361,15 @@ function renderArchives(response) {
       } catch (error) { message(error.message); }
       finally { setBusy(false); }
     });
-    card.append(button); target.append(card);
+    const compare = el('button', '用于本次模型解释', 'secondary archive-context'); compare.type = 'button'; compare.dataset.caseId = item.case_id;
+    compare.disabled = busy || !historyEligible(item);
+    compare.title = '需要已配置模型、相同报告声明样本哈希和合成标记，以及不同报告来源';
+    compare.addEventListener('click', () => {
+      if (busy || !historyEligible(item)) return;
+      clearHistoricalSelection(); historicalSelection = item; inputs.historical_case_id = item.case_id;
+      renderSemantic(); showTab('semantic');
+    });
+    card.append(button, compare); target.append(card);
   }
 }
 $('archive-save').addEventListener('click', async () => {

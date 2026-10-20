@@ -127,9 +127,12 @@ class FakeOllama(BaseHTTPRequestHandler):
         else:
             context = json.loads(request['messages'][1]['content'])
             content = output(context['evidence'][0]['evidence_id'])
-            if self.server.mode == 'adjustment':
+            if self.server.mode in ('adjustment', 'history_adjustment'):
                 content['adjustment'] = {'delta': -1, 'rationale': 'Synthetic model proposal',
                                          'cited_evidence': [context['evidence'][0]['evidence_id']]}
+            if self.server.mode == 'history_adjustment' and context.get('historical_context'):
+                content['source_observations'].append({'text': '历史来源报告记录了一条合成陈述，不能等同于当前行为。',
+                    'evidence_refs': [context['historical_context']['evidence'][0]['evidence_id']]})
             if self.server.mode == 'invalid_refs':
                 content['source_observations'][0]['evidence_refs'] = ['invented']
             value = {'model': 'test:latest', 'done': True, 'done_reason': 'stop',

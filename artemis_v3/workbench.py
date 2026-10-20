@@ -12,6 +12,7 @@ import secrets
 
 from .cape import MAX_BYTES, parse_cape_report
 from .case_store import list_cases, open_case, save_case, source_identity
+from .historical import load_historical_source
 from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
@@ -207,8 +208,12 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 if self.server.semantic_provider is None:
                     return self._send(409, {'error': 'Start with --ollama-model to enable explicit local explanations'})
                 try:
+                    historical = None
+                    if payload.get('historical_case_id') is not None:
+                        historical = load_historical_source(self.server.case_db, payload['historical_case_id'], report,
+                                                            _decode(payload['report'], MAX_BYTES))
                     explanation, suggestion = explain(report, self.server.semantic_provider, catalog=catalog,
-                                                       evidence_ids=payload.get('explanation_evidence_ids'))
+                                                       evidence_ids=payload.get('explanation_evidence_ids'), historical=historical)
                     result.update(model_status='completed', semantic_review=explanation,
                                   suggestion_file_b64=base64.b64encode(suggestion).decode() if suggestion else None)
                 except SemanticError as exc:

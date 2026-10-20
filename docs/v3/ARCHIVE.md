@@ -55,8 +55,9 @@ export to retain model explanations and the current review result separately;
 analyst review history continues to use `--review-db` and **刷新历史**. Archival
 does not invoke a model or automatically apply historical analyst decisions.
 
-Exact retrieval is a source lookup capability. Semantic similarity, automatic
-historical context injection into model prompts, case verdict inheritance and a
+Exact retrieval is a source lookup capability. An analyst can now explicitly
+select a matching historical source for [bounded model context](HISTORICAL.md).
+Semantic similarity, autonomous source selection, case verdict inheritance and a
 full RAG system remain future work. A returned historical report remains an
 unverified source assertion. Any future model context must preserve its report,
 sample-identity provenance, synthetic label and independent evidence citations.

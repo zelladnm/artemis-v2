@@ -64,7 +64,7 @@ Proposals reuse `artemis-proposal/1` validation against the exact report and rul
 Critical negative adjustments remain blocked. Base score, proposed adjustment
 and the separately approved analyst score retain their existing meanings.
 Explanations record model identity/artifact digest, metadata/response/context
-hashes and prompt version `artemis-semantic/1`. These aid traceability, not
+hashes and prompt version `artemis-semantic/2`. These aid traceability, not
 authentication or guaranteed reproducibility.
 
 ## Transport and failure behavior
@@ -103,3 +103,8 @@ The [evaluation CLI](EVALUATION.md) now supports fingerprint-bound suites, pinne
 local models, synthetic offline replay, repeated attempts and a separate human
 support-review template. Its bundled synthetic scenarios are engineering
 regressions, not the independent corpus or real-model quality validation above.
+
+[Explicit historical context](HISTORICAL.md) now permits one matching archived
+source, with separate historical citations and unchanged current-only adjustment
+references. This mode uses `artemis-explanation/2`; default single-source output
+retains version 1. Its total context remains within the existing byte/record caps.
