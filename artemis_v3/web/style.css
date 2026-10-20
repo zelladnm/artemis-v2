@@ -125,3 +125,6 @@ nav button{white-space:nowrap;font-size:12px}
 .archive-record code{display:block;font-size:10px;color:var(--muted)}
 .archive-record .pill{margin-left:10px}
 .archive-record p{font-size:11px}
+.archive-record button{margin:4px 8px 4px 0}
+.historical-evidence summary{cursor:pointer;color:var(--blue);font-size:12px;overflow-wrap:anywhere}
+#semantic-content code{overflow-wrap:anywhere;font-size:10px}

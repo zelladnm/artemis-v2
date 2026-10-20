@@ -13,7 +13,7 @@ parser.add_argument('--review-db', required=True)
 parser.add_argument('--case-db')
 args = parser.parse_args()
 with ThreadingHTTPServer(('127.0.0.1', 0), FakeOllama) as ollama:
-    ollama.mode, ollama.requests = 'adjustment', []
+    ollama.mode, ollama.requests = 'history_adjustment', []
     thread = Thread(target=ollama.serve_forever, daemon=True); thread.start()
     with WorkbenchServer(0, review_db=args.review_db, case_db=args.case_db,
                          semantic_provider=OllamaLocalProvider('test', port=ollama.server_port)) as workbench:

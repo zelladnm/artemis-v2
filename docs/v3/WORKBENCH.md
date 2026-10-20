@@ -28,6 +28,8 @@ Optional [source archival and exact SHA-256 lookup](ARCHIVE.md) is enabled with
 `--case-db /path/to/cases.sqlite`, using a database separate from review history.
 Click **归档来源** to persist report/ruleset bytes, then query and reopen records
 under **本地调查归档**. Reopening recomputes evidence and rule results.
+With a configured model, a matching distinct archived report can be explicitly
+selected for [historical evidence context](HISTORICAL.md) before generation.
 
 ## Investigation flow
 

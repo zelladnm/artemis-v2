@@ -114,12 +114,30 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     assert.equal(await page.locator('#report-file').inputValue(), '');
     assert.equal(await page.locator('#process img').count(), 0);
     if (semantic) {
+      // A second source for the same report-asserted sample enables explicit historical context.
+      report.info.id = 2;
+      await page.locator('#report-file').setInputFiles({ name: 'current-second-source.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(report)) });
+      await page.waitForFunction(() => !document.getElementById('analyze').disabled);
+      await page.locator('#synthetic').check();
+      await page.locator('#analyze').click();
+      await page.locator('#archive-list .archive-context').first().waitFor({ state: 'visible' });
+      await page.locator('#archive-list .archive-context').first().click();
+      await page.waitForFunction(() => document.getElementById('semantic-content').textContent.includes('已选择历史对照'));
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.locator('#explain').click();
       await page.waitForFunction(() => document.getElementById('semantic-content').textContent.includes('test:latest'));
       assert.match(await page.locator('#semantic-content').textContent(), /来源观察/);
       assert.match(await page.locator('#semantic-content').textContent(), /待验证推测/);
+      assert.match(await page.locator('#semantic-content').textContent(), /历史来源/);
+      assert.equal(await page.locator('#semantic-content .historical-evidence').count(), 1);
+      await page.locator('#semantic-content .historical-evidence summary').click();
+      assert.match(await page.locator('#semantic-content .historical-evidence pre').textContent(), /evidence_id/);
+      assert.equal(await page.locator('#clear-historical').isEnabled(), true);
       await page.screenshot({ path: path.join(artifacts, 'semantic-explanation.png'), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Historical explanation must not overflow on mobile');
+      await page.screenshot({ path: path.join(artifacts, 'historical-mobile.png'), fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1000 });
       await page.locator('#use-suggestion').click();
       await page.waitForFunction(() => document.getElementById('rationale').readOnly);
       // Reviewer identity is deliberately not restored from the source archive.
@@ -135,9 +153,15 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       await page.locator('#export-json').click();
       const modelExport = JSON.parse(fs.readFileSync(await (await modelDownloadPromise).path(), 'utf8'));
       assert.equal(modelExport.semantic_review.model, 'test:latest');
+      assert.equal(modelExport.semantic_review.schema_version, 'artemis-explanation/2');
+      assert.equal(modelExport.semantic_review.historical_context.report_sha256, sourceHash.match(/[a-f0-9]{64}/)[0]);
+      assert.notEqual(modelExport.semantic_review.historical_context.report_sha256, modelExport.report.source_sha256);
       assert.equal(modelExport.rule_assessment.base_score, 1);
       assert.equal(modelExport.analyst_review.decision, 'reject');
       assert.equal(modelExport.analyst_review.external_proposal_sha256, modelExport.semantic_review.proposal_review.proposal_sha256);
+      await page.locator('[data-tab="semantic"]').click();
+      await page.locator('#clear-historical').click();
+      assert.doesNotMatch(await page.locator('#semantic-content').textContent(), /已选择历史对照/);
     }
     assert.deepEqual(errors, []);
     console.log('PASS: desktop/mobile demo, process links, timeline, citations, persisted review, export and hostile text');
