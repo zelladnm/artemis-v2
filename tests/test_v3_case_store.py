@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from artemis_v3.case_store import CaseStoreError, list_cases, open_case, save_case
+from artemis_v3.cape import parse_cape_report
 from artemis_v3.workbench import WorkbenchServer
 
 FIXTURES = Path(__file__).parent / 'fixtures'
@@ -117,6 +118,17 @@ class CaseStoreTests(unittest.TestCase):
             db.execute("UPDATE cases SET sample_sha256=?", ('b'*64,))
         with self.assertRaises(CaseStoreError):
             list_cases(self.database)
+
+    def test_parser_coverage_changes_do_not_invalidate_exact_source_identity(self):
+        metadata = self.save()['case']
+        def updated_parser(*args, **kwargs):
+            report = parse_cape_report(*args, **kwargs)
+            report.warnings.append('Synthetic new parser coverage warning')
+            return report
+        with patch('artemis_v3.case_store.parse_cape_report', side_effect=updated_parser):
+            opened, raw, rules = open_case(self.database, metadata['case_id'])
+        self.assertEqual(opened, metadata)  # archival-time counts remain a snapshot
+        self.assertEqual((raw, rules), (self.raw, self.rules))
 
     def test_payload_and_record_budgets_roll_back_without_overwriting(self):
         first = self.save()['case']

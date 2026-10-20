@@ -310,7 +310,7 @@ function renderArchives(response) {
     card.append(el('strong', item.title));
     if (item.synthetic || item.ruleset_synthetic) card.append(el('span', '合成数据', 'pill'));
     card.append(el('code', '报告：' + item.report_sha256), el('code', '报告声明的样本：' + (item.sample_sha256 || '未提供有效 SHA-256')),
-      el('p', item.created_at + ' · ' + item.evidence_count + ' 条来源证据', 'muted'));
+      el('p', item.created_at + ' · 归档时 ' + item.evidence_count + ' 条来源证据', 'muted'));
     const button = el('button', '重新打开', 'secondary'); button.type = 'button';
     button.addEventListener('click', async () => {
       if (busy) return;

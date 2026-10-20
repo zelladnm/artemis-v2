@@ -71,8 +71,10 @@ database/journal filesystem quota. Back up the local database with the server
 stopped or a SQLite-aware backup process before modifying its storage externally.
 
 Metadata checksums and indexed identities are checked on listing. Reopening also
-validates source sizes, reparses the original bytes and verifies the complete
-derived metadata against the stored record. Corrupt/inconsistent records are
+validates source sizes, reparses the original bytes and verifies stable source
+identity fields against the stored record. List counts describe archival time;
+current parser counts/coverage may evolve and are recomputed when opened.
+Corrupt/inconsistent source identities are
 refused. Checksums are not authentication or protection from a database owner.
 List queries return metadata rather than complete source blobs, and oversized
 stored blobs are refused before loading into Python. The local service trust
