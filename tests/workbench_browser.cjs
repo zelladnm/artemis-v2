@@ -13,7 +13,7 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
   const semantic = process.env.ARTEMIS_BROWSER_SEMANTIC === '1';
   const serverArgs = semantic ? ['tests/serve_semantic_workbench.py'] : ['-m', 'artemis_v3.workbench', '--port', '0'];
   const child = spawn(process.env.ARTEMIS_PYTHON || 'python', [...serverArgs,
-    '--review-db', path.join(temporary, 'reviews.sqlite')], { stdio: ['ignore', 'pipe', 'pipe'] });
+    '--review-db', path.join(temporary, 'reviews.sqlite'), '--case-db', path.join(temporary, 'cases.sqlite')], { stdio: ['ignore', 'pipe', 'pipe'] });
   let browser, page;
   try {
     const origin = await new Promise((resolve, reject) => {
@@ -34,6 +34,7 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.goto(origin);
+    await page.waitForFunction(() => !document.getElementById('archive-recent').disabled);
     if (semantic) await page.waitForFunction(() => document.getElementById('model-note').textContent.includes('已配置'));
     await page.locator('#demo').click();
     await page.locator('#case').waitFor({ state: 'visible' });
@@ -70,6 +71,7 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
 
     // Import hostile text and confirm it stays text in the real browser DOM.
     const report = JSON.parse(fs.readFileSync('tests/fixtures/cape_synthetic.json', 'utf8'));
+    report.target = { file: { sha256: 'a'.repeat(64) } };
     report.behavior.processes[0].process_name = '<img src=x onerror="window.__artemis_xss=1">';
     await page.locator('#report-file').setInputFiles({ name: 'synthetic-hostile.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(report)) });
     await page.waitForFunction(() => !document.getElementById('analyze').disabled);
@@ -85,6 +87,32 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(artifacts, 'workbench-mobile.png'), fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile document must not overflow horizontally');
+    // Save source bytes, reload the page, exact-match the reported sample hash and reopen.
+    await page.locator('#archive-panel summary').click();
+    await page.locator('#archive-title').fill('<img src=x onerror="window.__archive_xss=1">');
+    await page.locator('#archive-save').click();
+    await page.waitForFunction(() => document.getElementById('archive-status').textContent.includes('归档已保存'));
+    await page.locator('#archive-list .archive-record').first().waitFor();
+    assert.equal(await page.locator('#archive-list img').count(), 0);
+    const sourceHash = await page.locator('#fingerprint').textContent();
+    await page.reload();
+    await page.waitForFunction(() => !document.getElementById('archive-recent').disabled);
+    await page.locator('#archive-panel summary').click();
+    await page.locator('#archive-sha').fill('a'.repeat(64));
+    await page.locator('#archive-search').click();
+    await page.locator('#archive-list .archive-record').first().waitFor();
+    assert.match(await page.locator('#archive-matches').textContent(), /报告声明的样本 SHA-256 精确匹配/);
+    assert.equal(await page.locator('#archive-list .archive-record').count(), 1);
+    assert.equal(await page.evaluate(() => window.__archive_xss), undefined);
+    await page.screenshot({ path: path.join(artifacts, 'archive-mobile.png'), fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Archive mobile view must not overflow');
+    await page.locator('#archive-list button').first().click();
+    await page.waitForFunction(() => document.getElementById('input-status').textContent.includes('已从本地归档恢复'));
+    assert.equal(await page.locator('#fingerprint').textContent(), sourceHash);
+    assert.match(await page.locator('#sample-fingerprint').textContent(), /报告声明的样本 SHA-256/);
+    assert.match(await page.locator('#metrics').textContent(), /1 \/ 10/);
+    assert.equal(await page.locator('#report-file').inputValue(), '');
+    assert.equal(await page.locator('#process img').count(), 0);
     if (semantic) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.locator('#explain').click();
@@ -94,6 +122,8 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       await page.screenshot({ path: path.join(artifacts, 'semantic-explanation.png'), fullPage: true });
       await page.locator('#use-suggestion').click();
       await page.waitForFunction(() => document.getElementById('rationale').readOnly);
+      // Reviewer identity is deliberately not restored from the source archive.
+      await page.locator('#reviewer').fill('UI synthetic analyst');
       assert.equal(await page.locator('#delta').inputValue(), '-1');
       await page.locator('#reason').fill('Synthetic model suggestion rejected after review');
       await page.locator('#decision').selectOption('reject');

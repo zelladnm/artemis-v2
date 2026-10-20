@@ -24,6 +24,11 @@ only saving a review writes it. Keep real investigation data outside the checkou
 Without this option, investigation and export work but review writes are refused.
 Use Ctrl+C to stop. Port 0 chooses a free loopback port and prints it.
 
+Optional [source archival and exact SHA-256 lookup](ARCHIVE.md) is enabled with
+`--case-db /path/to/cases.sqlite`, using a database separate from review history.
+Click **归档来源** to persist report/ruleset bytes, then query and reopen records
+under **本地调查归档**. Reopening recomputes evidence and rule results.
+
 ## Investigation flow
 
 1. Load the demo or select an existing CAPE JSON report (10 MiB maximum). Optionally
@@ -77,8 +82,9 @@ The browser cannot select arbitrary server filesystem paths or database location
 No external JavaScript, fonts, trackers or CDN assets are loaded.
 
 Cases are recomputed from supplied bytes for each operation, avoiding shared mutable
-case state. Uploaded reports/catalogs/suggestions are not persisted; review snapshots
-are persisted only when configured and explicitly saved. Keep originals separately.
+case state. By default uploads remain in memory. With explicitly configured stores,
+**归档来源** persists original report/catalog bytes and **保存复核记录** persists
+review snapshots. Keep independent original copies and exported explanations.
 The server is a local research tool, not a hardened public/multi-user service; local
 processes with filesystem/browser access remain within the trust boundary.
 
@@ -94,6 +100,8 @@ evidence selection, persisted reviews, JSON export and hostile text remaining
 inert. Screenshots are uploaded as the `workbench-browser-screenshots` artifact.
 A second flow uses a test-only Ollama HTTP fixture to check explanation, explicit
 proposal intake, rejection and export without changing the rule score.
+Both browser flows also save an archive, reload, exact-match a reported sample hash
+and reopen the original sources, with hostile titles remaining inert.
 A failed browser job must be investigated even when Python unit tests pass.
 
 This environment's browser binary download returned HTML rather than an archive;

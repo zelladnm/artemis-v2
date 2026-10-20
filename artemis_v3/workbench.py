@@ -11,6 +11,7 @@ from pathlib import Path
 import secrets
 
 from .cape import MAX_BYTES, parse_cape_report
+from .case_store import list_cases, open_case, save_case, source_identity
 from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
@@ -37,11 +38,13 @@ def investigate_payload(payload):
     """Recompute from exact uploaded bytes for every operation; no shared case state."""
     if not isinstance(payload, dict) or type(payload.get('synthetic', False)) is not bool:
         raise ValueError('Expected an investigation object and boolean synthetic label')
-    report = parse_cape_report(_decode(payload.get('report'), MAX_BYTES), synthetic=payload.get('synthetic', False))
+    source = _decode(payload.get('report'), MAX_BYTES)
+    report = parse_cape_report(source, synthetic=payload.get('synthetic', False))
     catalog = assessment = packet = None
     result = {'schema_version': 'artemis-workbench/1', 'report': report.as_dict(),
               'rule_assessment': None, 'proposal_review': None,
-              'model_status': 'not_configured', 'ruleset_sha256': None, 'ruleset_synthetic': False}
+              'model_status': 'not_configured', 'ruleset_sha256': None, 'ruleset_synthetic': False,
+              'source_identity': source_identity(source)}
     if payload.get('ruleset') is not None:
         catalog = parse_ruleset(_decode(payload['ruleset'], MAX_RULESET_BYTES))
         assessment = assess_signatures(report, catalog.rules, version=catalog.version)
@@ -69,10 +72,13 @@ class WorkbenchServer(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
 
-    def __init__(self, port=8765, *, review_db=None, semantic_provider=None):
+    def __init__(self, port=8765, *, review_db=None, semantic_provider=None, case_db=None):
         self.semantic_provider = semantic_provider
         self.token = secrets.token_urlsafe(32)
         self.review_db = Path(review_db).resolve() if review_db else None
+        self.case_db = Path(case_db).resolve() if case_db else None
+        if self.review_db is not None and self.review_db == self.case_db:
+            raise ValueError('Case archive and review history require separate database paths')
         super().__init__(('127.0.0.1', port), WorkbenchHandler)
         self.origin = f'http://127.0.0.1:{self.server_port}'
 
@@ -129,7 +135,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         if self.path == '/api/config':
             return self._send(200, {'model_enabled': self.server.semantic_provider is not None,
                                     'model': self.server.semantic_provider.model if self.server.semantic_provider else None,
-                                    'review_enabled': self.server.review_db is not None})
+                                    'review_enabled': self.server.review_db is not None,
+                                    'archive_enabled': self.server.case_db is not None})
         if self.path == '/api/demo':
             return self._send(200, {'report': base64.b64encode((WEB / 'demo/report.json').read_bytes()).decode(),
                                     'ruleset': base64.b64encode((WEB / 'demo/ruleset.json').read_bytes()).decode(),
@@ -143,13 +150,20 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 return self._send(200, {'reviews': list_reviews(self.server.review_db)})
             except ValueError as exc:
                 return self._send(400, {'error': str(exc)})
+        if self.path == '/api/cases':
+            if not self.server.case_db:
+                return self._send(409, {'error': 'Start with --case-db to enable the local source archive'})
+            try:
+                return self._send(200, {'cases': list_cases(self.server.case_db), 'match_kind': 'recent', 'limit': 50})
+            except ValueError as exc:
+                return self._send(400, {'error': str(exc)})
         return self._send(404, {'error': 'Not found'})
 
     def do_POST(self):
         self.close_connection = True
         if not self._allowed(api=True):
             return self._send(403, {'error': 'Local origin or request token rejected'})
-        if self.path not in ('/api/analyze', '/api/review', '/api/explain'):
+        if self.path not in ('/api/analyze', '/api/review', '/api/explain', '/api/cases/save', '/api/cases/search', '/api/cases/open'):
             return self._send(404, {'error': 'Not found'})
         lengths = self.headers.get_all('Content-Length', [])
         if (len(lengths) != 1 or len(lengths[0]) > 9 or not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -163,7 +177,30 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if len(raw) != size:
                 raise ValueError('Incomplete request body')
             payload = json.loads(raw, object_pairs_hook=_pairs)
+            if self.path.startswith('/api/cases/'):
+                if not self.server.case_db:
+                    return self._send(409, {'error': 'Start with --case-db to enable explicit local archival'})
+                if self.path == '/api/cases/search':
+                    if not isinstance(payload, dict) or set(payload) != {'kind', 'sha256'} or payload['kind'] not in ('sample', 'report'):
+                        raise ValueError('Choose exact sample or report SHA-256 lookup')
+                    return self._send(200, {'cases': list_cases(self.server.case_db, kind=payload['kind'], sha256=payload['sha256']),
+                                            'match_kind': 'exact_' + payload['kind'] + '_sha256', 'limit': 50})
+                if self.path == '/api/cases/open':
+                    if not isinstance(payload, dict) or set(payload) != {'case_id'}:
+                        raise ValueError('Open requires only an archive case ID')
+                    metadata, source, rules = open_case(self.server.case_db, payload['case_id'])
+                    restored = {'report': base64.b64encode(source).decode(), 'synthetic': metadata['synthetic']}
+                    if rules is not None:
+                        restored['ruleset'] = base64.b64encode(rules).decode()
+                    result, _, _, _ = investigate_payload(restored)
+                    if self.server.semantic_provider is not None:
+                        result['model_status'] = 'configured'
+                    return self._send(200, {'inputs': restored, 'result': result, 'archived_case': metadata})
             result, report, catalog, packet = investigate_payload(payload)
+            if self.path == '/api/cases/save':
+                return self._send(200, save_case(self.server.case_db, _decode(payload['report'], MAX_BYTES),
+                    rules=_decode(payload['ruleset'], MAX_RULESET_BYTES) if payload.get('ruleset') is not None else None,
+                    synthetic=payload.get('synthetic', False), title=payload.get('archive_title', '')))
             if self.server.semantic_provider is not None:
                 result['model_status'] = 'configured'
             if self.path == '/api/explain':
@@ -193,6 +230,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Artemis v3 local investigation workbench')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--review-db', help='Explicit local SQLite history destination; omit for read-only investigation')
+    parser.add_argument('--case-db', help='Explicit separate SQLite source archive; writes only on archive save')
     parser.add_argument('--ollama-model', help='Explicit installed local Ollama model; never auto-pulled')
     parser.add_argument('--ollama-port', type=int, default=11434)
     parser.add_argument('--model-timeout', type=float, default=60)
@@ -201,9 +239,10 @@ def main(argv=None):
         parser.error('Port must be between 0 and 65535')
     try:
         provider = OllamaLocalProvider(args.ollama_model, port=args.ollama_port, timeout=args.model_timeout) if args.ollama_model else None
+        server = WorkbenchServer(args.port, review_db=args.review_db, semantic_provider=provider, case_db=args.case_db)
     except ValueError as exc:
         parser.error(str(exc))
-    with WorkbenchServer(args.port, review_db=args.review_db, semantic_provider=provider) as server:
+    with server:
         print(f'Artemis v3 workbench: {server.origin}', flush=True)
         try:
             server.serve_forever()

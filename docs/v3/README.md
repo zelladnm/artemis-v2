@@ -63,3 +63,6 @@ they retain evidence references and send any adjustment through analyst review.
 [Semantic evaluation](EVALUATION.md) runs fixed suites with synthetic replay or an
 explicit pinned local model, records failures and produces human support-review
 templates. Technical acceptance is kept separate from explanation quality.
+
+[Local source archival](ARCHIVE.md) adds opt-in report/ruleset persistence, exact
+report or report-declared sample SHA-256 lookup and reopening in the workbench.
