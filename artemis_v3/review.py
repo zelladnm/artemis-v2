@@ -94,8 +94,20 @@ def _schema(connection, *, create):
             UNIQUE(proposal_sha256, revision))''')
         connection.execute(f'PRAGMA application_id = {APPLICATION_ID}')
         connection.execute('PRAGMA user_version = 1')
-    elif version != 1 or application_id != APPLICATION_ID:
+        version, application_id = 1, APPLICATION_ID
+    if version not in (1, 2) or application_id != APPLICATION_ID:
         raise ReviewError('Unsupported Artemis review store version')
+    if version == 1 and create:
+        # Additive, transactional upgrade on an explicit write, never on a read.
+        connection.execute('''CREATE TABLE claim_reviews (
+            review_id TEXT PRIMARY KEY, generation_sha256 TEXT NOT NULL,
+            input_sha256 TEXT NOT NULL, revision INTEGER NOT NULL, previous_review_id TEXT,
+            body TEXT NOT NULL, body_sha256 TEXT NOT NULL,
+            UNIQUE(generation_sha256, revision))''')
+        connection.execute('CREATE INDEX claim_reviews_input ON claim_reviews(input_sha256)')
+        connection.execute('PRAGMA user_version = 2')
+        version = 2
+    return version
 
 
 def _decode_row(row):

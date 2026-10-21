@@ -47,7 +47,10 @@ selected for [historical evidence context](HISTORICAL.md) before generation.
 5. Enter a declared reviewer, approve/reject/defer decision and reason. The service
    recomputes the original report/catalog assessment. A decision about an imported
    suggestion must match its adjustment, and its exact file fingerprint is saved.
-6. Export JSON or escaped Markdown, including the current review record, if any.
+6. In the model explanation tab, [review each claim against its evidence](CLAIM_REVIEW.md).
+   Save supported/unsupported/uncertain judgments and reasons, leaving untouched claims
+   unreviewed. This does not approve any score adjustment.
+7. Export JSON or escaped Markdown, including the current review records, if any.
    Read local history to inspect previous decisions and their full snapshots.
 
 The previous review ID protects revisions of the same proposal. A first decision
@@ -86,7 +89,9 @@ No external JavaScript, fonts, trackers or CDN assets are loaded.
 Cases are recomputed from supplied bytes for each operation, avoiding shared mutable
 case state. By default uploads remain in memory. With explicitly configured stores,
 **归档来源** persists original report/catalog bytes and **保存复核记录** persists
-review snapshots. Keep independent original copies and exported explanations.
+review snapshots. **保存逐条核验** persists the exact model explanation and per-claim
+judgments in the review store; saved generations can be reopened without a model.
+Keep independent original copies and exported explanations.
 The server is a local research tool, not a hardened public/multi-user service; local
 processes with filesystem/browser access remain within the trust boundary.
 
@@ -111,3 +116,7 @@ local Chromium rendering could not be run. Use the CI browser job and screenshot
 for browser-specific verification. All committed reports and test inputs are
 synthetic. Real CAPE-version compatibility and malware detection accuracy remain
 unverified.
+
+Claim review additionally covers partial judgments, exact generation binding, stale
+revision rejection, separate score decisions, page reload/reopening and safe export
+of saved records versus unsaved drafts. See CLAIM_REVIEW.md for schema-2 migration.
