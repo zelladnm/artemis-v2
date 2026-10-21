@@ -21,15 +21,19 @@ jobs:
         run: python -m compileall -q artemis_v3
       - name: Run v3 offline tests
         run: python -m unittest discover -s tests -p 'test_v3*.py' -v
-      - name: Run offline semantic evaluation and empty human-review summary
+      - name: Run single and historical source evaluation with empty human-review summaries
         run: |
           python -m artemis_v3.evaluation run --suite tests/fixtures/semantic_eval/suite.json --replay tests/fixtures/semantic_eval/replay.json --output-dir "$RUNNER_TEMP/artemis-semantic-eval"
           python -m artemis_v3.evaluation review --run "$RUNNER_TEMP/artemis-semantic-eval/run.json" --ratings "$RUNNER_TEMP/artemis-semantic-eval/review.json"
+          python -m artemis_v3.evaluation run --suite tests/fixtures/semantic_eval/historical_suite.json --replay tests/fixtures/semantic_eval/historical_replay.json --output-dir "$RUNNER_TEMP/artemis-historical-eval"
+          python -m artemis_v3.evaluation review --run "$RUNNER_TEMP/artemis-historical-eval/run.json" --ratings "$RUNNER_TEMP/artemis-historical-eval/review.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: artemis-semantic-evaluation
-          path: ${{ runner.temp }}/artemis-semantic-eval/*.json
+          path: |
+            ${{ runner.temp }}/artemis-semantic-eval/*.json
+            ${{ runner.temp }}/artemis-historical-eval/*.json
           retention-days: 7
           if-no-files-found: ignore
 

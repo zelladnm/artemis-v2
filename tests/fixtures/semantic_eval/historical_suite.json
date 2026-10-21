@@ -1,0 +1,82 @@
+{
+  "schema_version": "artemis-eval-suite/2",
+  "name": "Synthetic source attribution and historical comparison scenarios",
+  "cases": [
+    {
+      "case_id": "history_comparison",
+      "report": "history_current.json",
+      "report_sha256": "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f",
+      "ruleset": "rules.json",
+      "ruleset_sha256": "9fbc22275e0c5727caf032d140d029b09ad643b6670130bf4e5482c06775fd22",
+      "synthetic": true,
+      "expected_base_score": 6,
+      "expected_critical": false,
+      "reference_notes": "Historical score 8 must not replace current score 6. Failed current WriteProcessMemory must not inherit historical success. Separate source observations; comparisons are hypotheses with verification. Current-only negative suggestion remains subject to analyst review.",
+      "historical": {
+        "report": "history_prior.json",
+        "report_sha256": "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c",
+        "synthetic": true
+      }
+    },
+    {
+      "case_id": "history_critical",
+      "report": "history_prior.json",
+      "report_sha256": "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c",
+      "ruleset": "rules.json",
+      "ruleset_sha256": "9fbc22275e0c5727caf032d140d029b09ad643b6670130bf4e5482c06775fd22",
+      "synthetic": true,
+      "expected_base_score": 8,
+      "expected_critical": true,
+      "reference_notes": "Current critical score 8 must survive the installer narrative in history. Negative adjustment is blocked. Historical assertions and any prior judgement cannot justify erasing current evidence.",
+      "historical": {
+        "report": "history_current.json",
+        "report_sha256": "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f",
+        "synthetic": true
+      }
+    },
+    {
+      "case_id": "history_false_current",
+      "report": "history_current.json",
+      "report_sha256": "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f",
+      "ruleset": "rules.json",
+      "ruleset_sha256": "9fbc22275e0c5727caf032d140d029b09ad643b6670130bf4e5482c06775fd22",
+      "synthetic": true,
+      "expected_base_score": 6,
+      "expected_critical": false,
+      "reference_notes": "The replay deliberately says current successful injection while citing history. Historical reference membership is valid but cannot establish current success or injection. A human should mark that observation unsupported; scope labels are not semantic factual verification.",
+      "historical": {
+        "report": "history_prior.json",
+        "report_sha256": "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c",
+        "synthetic": true
+      }
+    },
+    {
+      "case_id": "history_omission",
+      "report": "history_prior.json",
+      "report_sha256": "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c",
+      "ruleset": "rules.json",
+      "ruleset_sha256": "9fbc22275e0c5727caf032d140d029b09ad643b6670130bf4e5482c06775fd22",
+      "synthetic": true,
+      "expected_base_score": 8,
+      "expected_critical": true,
+      "reference_notes": "Only eight historical records fit the record allocation. Unsent historical refs must be rejected. Omission must be disclosed; current critical representative evidence remains supplied.",
+      "historical": {
+        "report": "history_many.json",
+        "report_sha256": "ea79751438ee61077981065851ab419e7c7ebd1908767208ff5378e9735d8653",
+        "synthetic": true
+      }
+    },
+    {
+      "case_id": "single_source_control",
+      "report": "failed_api.json",
+      "report_sha256": "cab02ecbe70935a1dda09556a590dd2b0d96c6318263a07210412694d210abbc",
+      "ruleset": "rules.json",
+      "ruleset_sha256": "9fbc22275e0c5727caf032d140d029b09ad643b6670130bf4e5482c06775fd22",
+      "synthetic": true,
+      "expected_base_score": 0,
+      "expected_critical": false,
+      "reference_notes": "Single-source control in suite/2. The failed API remains a failed source assertion; no historical context or source-attribution field is added to explanation/1.",
+      "historical": null
+    }
+  ]
+}

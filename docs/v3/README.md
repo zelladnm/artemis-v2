@@ -2,6 +2,13 @@
 
 This first delivery builds a **zero-dependency, offline-first IOC investigation core** in parallel with v2. It is **not** a complete replacement for v2.
 
+The current development chain includes the workbench, local model adapter,
+review/history, source archive and explicit historical context described below.
+The integrated acceptance branch also incorporates the previously separate VT
+response fix. See [the current acceptance checklist](ACCEPTANCE.md) for reproducible
+commands, completed engineering scope and remaining real-data/model validation.
+Draft branches have not been merged into main or released.
+
 ## Quick start (Python 3.11+)
 
 No Ollama, VM, GPU, ChromaDB, secrets, or network access required. From the repository root:
@@ -35,11 +42,11 @@ claim of malware-verdict accuracy.
 
 ## Proposed follow-up milestones
 
-1. Reliability: typed provider response validation, evidence IDs, local cache with TTL, rate limits, provider contract tests.
-2. Enrichment: multiple providers, deduplication, citations, analyst review and validated report export.
-3. AI (opt-in): local Ollama/remote adapters with strict evidence-only summary constraints.
-4. Isolated analysis (opt-in): ingest sandbox reports from separately managed isolation; never execute unknown files by default.
-5. Web experience: thin API/UI, Docker, integration checks and one-command demo.
+1. Validate deployed CAPE report variants with sanitized source contracts.
+2. Measure pinned real local models, factual support, dangerous adjustments and analyst time saved.
+3. Review the integrated draft code and test deployment/backup/recovery on target systems.
+4. Rebuild isolated Worker task management and richer forensic evidence as a separate optional mode.
+5. Expand production rules, independent evaluation data and evidence-bound retrieval.
 
 ## Compatibility
 

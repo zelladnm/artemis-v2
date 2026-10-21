@@ -1,0 +1,32 @@
+{
+  "behavior": {
+    "processes": [
+      {
+        "process_id": 100,
+        "parent_id": 0,
+        "process_name": "setup-synthetic.exe",
+        "first_seen": "2025-12-31 10:00:00",
+        "calls": [
+          {
+            "api": "WriteProcessMemory",
+            "status": true,
+            "return_value": 1,
+            "arguments": []
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "name": "synthetic_critical_assertion",
+      "description": "Synthetic critical rule assertion; behavior and maliciousness require verification."
+    }
+  ],
+  "target": {
+    "file": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "setup-synthetic.exe"
+    }
+  }
+}

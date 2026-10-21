@@ -115,6 +115,7 @@ layout and exports a reviewed current proposal with historical provenance.
 
 These tests validate engineering behavior. No real model or real sample was used
 to measure cross-report attribution, factual support or investigative benefit.
-The current evaluation CLI's bundled replay suite remains single-source; a labelled
-multi-source corpus and pinned real-model evaluation are still needed. Reports
-and generated prose remain untrusted data and are rendered as text.
+The evaluation CLI now includes a fingerprint-bound synthetic two-source suite
+with source-grouped human ratings; see [EVALUATION.md](EVALUATION.md). Independent
+labelled multi-source data and pinned real-model measurements are still needed.
+Reports and generated prose remain untrusted data and are rendered as text.
