@@ -1,0 +1,108 @@
+{
+  "target": {
+    "file": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "signatures": [
+    {
+      "name": "synthetic_history_0",
+      "description": "Synthetic historical source assertion 0"
+    },
+    {
+      "name": "synthetic_history_1",
+      "description": "Synthetic historical source assertion 1"
+    },
+    {
+      "name": "synthetic_history_2",
+      "description": "Synthetic historical source assertion 2"
+    },
+    {
+      "name": "synthetic_history_3",
+      "description": "Synthetic historical source assertion 3"
+    },
+    {
+      "name": "synthetic_history_4",
+      "description": "Synthetic historical source assertion 4"
+    },
+    {
+      "name": "synthetic_history_5",
+      "description": "Synthetic historical source assertion 5"
+    },
+    {
+      "name": "synthetic_history_6",
+      "description": "Synthetic historical source assertion 6"
+    },
+    {
+      "name": "synthetic_history_7",
+      "description": "Synthetic historical source assertion 7"
+    },
+    {
+      "name": "synthetic_history_8",
+      "description": "Synthetic historical source assertion 8"
+    },
+    {
+      "name": "synthetic_history_9",
+      "description": "Synthetic historical source assertion 9"
+    },
+    {
+      "name": "synthetic_history_10",
+      "description": "Synthetic historical source assertion 10"
+    },
+    {
+      "name": "synthetic_history_11",
+      "description": "Synthetic historical source assertion 11"
+    },
+    {
+      "name": "synthetic_history_12",
+      "description": "Synthetic historical source assertion 12"
+    },
+    {
+      "name": "synthetic_history_13",
+      "description": "Synthetic historical source assertion 13"
+    },
+    {
+      "name": "synthetic_history_14",
+      "description": "Synthetic historical source assertion 14"
+    },
+    {
+      "name": "synthetic_history_15",
+      "description": "Synthetic historical source assertion 15"
+    },
+    {
+      "name": "synthetic_history_16",
+      "description": "Synthetic historical source assertion 16"
+    },
+    {
+      "name": "synthetic_history_17",
+      "description": "Synthetic historical source assertion 17"
+    },
+    {
+      "name": "synthetic_history_18",
+      "description": "Synthetic historical source assertion 18"
+    },
+    {
+      "name": "synthetic_history_19",
+      "description": "Synthetic historical source assertion 19"
+    },
+    {
+      "name": "synthetic_history_20",
+      "description": "Synthetic historical source assertion 20"
+    },
+    {
+      "name": "synthetic_history_21",
+      "description": "Synthetic historical source assertion 21"
+    },
+    {
+      "name": "synthetic_history_22",
+      "description": "Synthetic historical source assertion 22"
+    },
+    {
+      "name": "synthetic_history_23",
+      "description": "Synthetic historical source assertion 23"
+    },
+    {
+      "name": "synthetic_critical_assertion"
+    }
+  ]
+}

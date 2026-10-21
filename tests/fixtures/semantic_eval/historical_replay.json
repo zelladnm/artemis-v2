@@ -1,0 +1,161 @@
+{
+  "schema_version": "artemis-eval-replay/1",
+  "suite_sha256": "90830375c1ff73db8e8a66132e0991acf44c44b11c4181db2b4d453ceed049e3",
+  "outputs": {
+    "history_comparison": {
+      "source_observations": [
+        {
+          "text": "当前来源报告记录了一条合成签名陈述，含义尚需核查。",
+          "evidence_refs": [
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0"
+          ]
+        },
+        {
+          "text": "历史来源报告记录了一条合成签名陈述，不能当作当前行为。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "两份报告的陈述可能有关，报告中的相同样本哈希声明仍需独立核验。",
+          "evidence_refs": [
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0",
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ],
+          "verification": "分别核对两份报告中的状态、时间与原始事件，验证样本字节，禁止把历史成功归入当前。"
+        }
+      ],
+      "limitations": [
+        "合成双报告回放只验证引用与复核契约，不提供真实模型质量、注入成功或样本身份结论。"
+      ],
+      "adjustment": {
+        "delta": -6,
+        "rationale": "合成校正提案需人工核查；引用仅属于当前来源，关键规则必须阻止降分。",
+        "cited_evidence": [
+          "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0"
+        ]
+      }
+    },
+    "history_critical": {
+      "source_observations": [
+        {
+          "text": "当前来源报告记录了一条合成签名陈述，含义尚需核查。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ]
+        },
+        {
+          "text": "历史来源报告记录了一条合成签名陈述，不能当作当前行为。",
+          "evidence_refs": [
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "两份报告的陈述可能有关，报告中的相同样本哈希声明仍需独立核验。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0",
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0"
+          ],
+          "verification": "分别核对两份报告中的状态、时间与原始事件，验证样本字节，禁止把历史成功归入当前。"
+        }
+      ],
+      "limitations": [
+        "合成双报告回放只验证引用与复核契约，不提供真实模型质量、注入成功或样本身份结论。"
+      ],
+      "adjustment": {
+        "delta": -8,
+        "rationale": "合成校正提案需人工核查；引用仅属于当前来源，关键规则必须阻止降分。",
+        "cited_evidence": [
+          "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+        ]
+      }
+    },
+    "history_false_current": {
+      "source_observations": [
+        {
+          "text": "当前来源报告记录了一条合成签名陈述，含义尚需核查。",
+          "evidence_refs": [
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0"
+          ]
+        },
+        {
+          "text": "当前分析已确认成功注入。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "两份报告的陈述可能有关，报告中的相同样本哈希声明仍需独立核验。",
+          "evidence_refs": [
+            "92399fdcb63de53e04847bf19da0b78b8d25fb59079e02eb0345197d4fbad08f#/signatures/0",
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ],
+          "verification": "分别核对两份报告中的状态、时间与原始事件，验证样本字节，禁止把历史成功归入当前。"
+        }
+      ],
+      "limitations": [
+        "合成双报告回放只验证引用与复核契约，不提供真实模型质量、注入成功或样本身份结论。"
+      ],
+      "adjustment": null
+    },
+    "history_omission": {
+      "source_observations": [
+        {
+          "text": "当前来源报告记录了一条合成签名陈述，含义尚需核查。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0"
+          ]
+        },
+        {
+          "text": "历史来源报告记录了一条合成签名陈述，不能当作当前行为。",
+          "evidence_refs": [
+            "ea79751438ee61077981065851ab419e7c7ebd1908767208ff5378e9735d8653#/signatures/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "两份报告的陈述可能有关，报告中的相同样本哈希声明仍需独立核验。",
+          "evidence_refs": [
+            "7e8394f4954a73fd33491db45f8f0c93197c7afb2afeaa42973875e2ed0d780c#/signatures/0",
+            "ea79751438ee61077981065851ab419e7c7ebd1908767208ff5378e9735d8653#/signatures/0"
+          ],
+          "verification": "分别核对两份报告中的状态、时间与原始事件，验证样本字节，禁止把历史成功归入当前。"
+        }
+      ],
+      "limitations": [
+        "合成双报告回放只验证引用与复核契约，不提供真实模型质量、注入成功或样本身份结论。"
+      ],
+      "adjustment": null
+    },
+    "single_source_control": {
+      "source_observations": [
+        {
+          "text": "来源报告中 WriteProcessMemory 的 status 为 false、return_value 为 0，不能据此证明执行成功。",
+          "evidence_refs": [
+            "cab02ecbe70935a1dda09556a590dd2b0d96c6318263a07210412694d210abbc#/behavior/processes/0/calls/0"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "text": "该合成行为的目的尚需验证。",
+          "evidence_refs": [
+            "cab02ecbe70935a1dda09556a590dd2b0d96c6318263a07210412694d210abbc#/behavior/processes/0/calls/0"
+          ],
+          "verification": "人工核对原始事件和相关上下文，不将来源断言当作已证实事实。"
+        }
+      ],
+      "limitations": [
+        "合成回放仅测试工程契约，不能衡量真实模型质量。"
+      ],
+      "adjustment": null
+    }
+  }
+}

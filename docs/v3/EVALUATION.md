@@ -41,6 +41,60 @@ reference notes ask a human to mark it unsupported; ratings start unreviewed.
 Similarly, replaying an answer that ignores embedded instructions does not prove
 that a real model resists prompt injection.
 
+## Two-source attribution evaluation
+
+The integrated alpha also accepts `artemis-eval-suite/2`. Every case has a
+`historical` field: either `null` for a single-source control or an object with
+exactly `report`, `report_sha256` and boolean `synthetic` fields. Historical paths
+have the same containment, fingerprint and individual byte limits as current
+reports, and count toward the shared 32 MiB suite-source budget. All cases and
+associations are validated before any model request or output-directory creation.
+
+The evaluation and workbench use the same source-association validator. The two
+reports must assert the same valid `/target/file/sha256`, have equal synthetic
+labels and distinct report fingerprints. Sample bytes and cross-run equivalence
+remain unverified. Evaluation uses a stable `evaluation-source:<report_sha256>`
+identifier; it does not create or modify an analyst's archive. Historical rules,
+scores and review decisions are not supplied.
+
+Run the additional synthetic suite in a new directory:
+
+```sh
+python -m artemis_v3.evaluation run --suite tests/fixtures/semantic_eval/historical_suite.json --replay tests/fixtures/semantic_eval/historical_replay.json --output-dir ../artemis-history-replay
+python -m artemis_v3.evaluation review --run ../artemis-history-replay/run.json --ratings ../artemis-history-replay/review.json
+```
+
+| Scenario | Acceptance boundary |
+|---|---|
+| Historical comparison | Prior score 8 does not replace current 6; adjustments cite current evidence only |
+| Current critical evidence | Installer context from history cannot unblock a current negative adjustment |
+| False current attribution | A false current injection claim cites history; technical acceptance leaves it unreviewed |
+| Historical omission | Only eight historical records are supplied; current critical evidence remains |
+| Single-source control | History=null retains production explanation/1 |
+
+Production context budgets, source-scope derivation and current-only proposal gates
+apply unchanged. Tests mutate replay responses to exercise rejected mixed
+observations, spoofed scopes, omitted historical references and historical
+adjustment citations. Rejections remain failures in all denominators; CLI exit 1
+is retained. The main replay includes only outputs that pass the technical
+contract, including the false-attribution counterexample.
+
+Suite/2 emits `artemis-eval-run/2`, `artemis-eval-ratings/2` and
+`artemis-eval-human-summary/2`. Runs record source declarations and hashes, add
+historical/case-store implementation fingerprints, and separate technical counts
+by current-only/history mode. Rating items preserve server-derived `source_scope`;
+single-source claims and adjustments are current. Human summaries group ratings
+by current/historical/mixed citations as well as section. Editing a scope invalidates
+ratings just like editing a claim or reference. These groups describe cited sources,
+not truth or automatic attribution accuracy. Unrated groups retain null support
+fractions. Models receive no reference notes or expected rule results.
+
+Suite/1 and its run/ratings/summary/1 contracts remain supported; existing manifests
+and replay fingerprints are unchanged. A pinned local model can use either suite
+version. Private sources must be labelled accurately on both reports; declared
+non-synthetic sources refuse replay. Labels are declarations, not automatic
+detection or anonymization of sensitive data.
+
 ## Pinned local model run
 
 Use a trusted, already configured Ollama service with cloud support disabled as

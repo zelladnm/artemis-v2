@@ -1,0 +1,32 @@
+{
+  "behavior": {
+    "processes": [
+      {
+        "process_id": 100,
+        "parent_id": 0,
+        "process_name": "setup-synthetic.exe",
+        "first_seen": "2026-01-01 10:00:00",
+        "calls": [
+          {
+            "api": "WriteProcessMemory",
+            "status": false,
+            "return_value": 0,
+            "arguments": []
+          }
+        ]
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "name": "synthetic_installer_activity",
+      "description": "Synthetic installer source assertion; not a benign label."
+    }
+  ],
+  "target": {
+    "file": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "setup-synthetic.exe"
+    }
+  }
+}

@@ -8,12 +8,14 @@ import re
 import time
 
 from .cape import MAX_BYTES, parse_cape_report
+from .historical import prepare_historical_source
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
 from .scoring import assess_signatures
 from .semantic import OllamaLocalProvider, SemanticError, SYSTEM_PROMPT, explain
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 MAX_CASES = 16
+MAX_SUITE_SOURCE_BYTES = 32 * 1024 * 1024
 
 
 class EvaluationError(ValueError):
@@ -85,14 +87,15 @@ def load_suite(path):
     raw = _read(path, 64 * 1024)
     suite = _json(raw)
     _fields(suite, 'schema_version name cases')
-    if suite['schema_version'] != 'artemis-eval-suite/1':
+    if suite['schema_version'] not in ('artemis-eval-suite/1', 'artemis-eval-suite/2'):
         raise EvaluationError('Unsupported evaluation suite schema')
     _text(suite['name'], 128)
     if not isinstance(suite['cases'], list) or not 1 <= len(suite['cases']) <= MAX_CASES:
         raise EvaluationError('A suite requires 1-16 cases')
     seen, prepared, total = set(), [], 0
     for case in suite['cases']:
-        _fields(case, 'case_id report report_sha256 ruleset ruleset_sha256 synthetic expected_base_score expected_critical reference_notes')
+        fields = 'case_id report report_sha256 ruleset ruleset_sha256 synthetic expected_base_score expected_critical reference_notes'
+        _fields(case, fields + (' historical' if suite['schema_version'] == 'artemis-eval-suite/2' else ''))
         case_id = case['case_id']
         if (not isinstance(case_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', case_id)
                 or case_id in seen):
@@ -104,16 +107,26 @@ def load_suite(path):
             raise EvaluationError('Invalid case provenance or rule expectations')
         report_raw = _source(path.parent, case['report'], case['report_sha256'], MAX_BYTES)
         rules_raw = _source(path.parent, case['ruleset'], case['ruleset_sha256'], MAX_RULESET_BYTES)
-        total += len(report_raw) + len(rules_raw)
-        if total > 32 * 1024 * 1024:
+        historical_raw = b''
+        source = case.get('historical')
+        if source is not None:
+            _fields(source, 'report report_sha256 synthetic')
+            if type(source['synthetic']) is not bool:
+                raise EvaluationError('Historical source provenance must be boolean')
+            historical_raw = _source(path.parent, source['report'], source['report_sha256'], MAX_BYTES)
+        total += len(report_raw) + len(rules_raw) + len(historical_raw)
+        if total > MAX_SUITE_SOURCE_BYTES:
             raise EvaluationError('Suite source data exceeds 32 MiB')
         report = parse_cape_report(report_raw, synthetic=case['synthetic'])
         catalog = parse_ruleset(rules_raw)
+        historical = (prepare_historical_source('evaluation-source:' + digest(historical_raw), historical_raw,
+                                               report, report_raw, synthetic=source['synthetic'])
+                      if source is not None else None)
         assessment = assess_signatures(report, catalog.rules, version=catalog.version)
         if (assessment.base_score != case['expected_base_score'] or
                 assessment.critical_signals_present != case['expected_critical']):
             raise EvaluationError('Rule assessment differs from independently declared case expectations')
-        prepared.append((case, report, catalog, assessment))
+        prepared.append((case, report, catalog, assessment, historical))
     return suite, digest(raw), prepared
 
 
@@ -142,24 +155,29 @@ def _ratio(numerator, denominator):
 
 
 def review_template(run, run_sha256):
+    attributed = run['schema_version'] == 'artemis-eval-run/2'
     items = []
     for row in run['attempts']:
         explanation = row['explanation']
         if explanation is None:
             continue
-        claims = [(section, index, claim['text'], claim['evidence_refs'], claim.get('verification'))
+        claims = [(section, index, claim['text'], claim['evidence_refs'], claim.get('verification'),
+                   claim.get('source_scope', 'current'))
                   for section in ('source_observations', 'hypotheses')
                   for index, claim in enumerate(explanation[section])]
         packet = explanation['proposal_review']
         if packet:
             proposal = packet['adjustment_proposal']
-            claims.append(('adjustment', 0, proposal['rationale'], proposal['cited_evidence'], None))
-        for section, index, text, refs, verification in claims:
-            items.append({'claim_id': f"{row['case_id']}:{row['iteration']}:{section}:{index}",
-                          'case_id': row['case_id'], 'section': section, 'text': text,
-                          'evidence_refs': refs, 'verification': verification,
-                          'rating': 'unreviewed', 'reason': ''})
-    return {'schema_version': 'artemis-eval-ratings/1', 'run_sha256': run_sha256,
+            claims.append(('adjustment', 0, proposal['rationale'], proposal['cited_evidence'], None, 'current'))
+        for section, index, text, refs, verification, scope in claims:
+            item = {'claim_id': f"{row['case_id']}:{row['iteration']}:{section}:{index}",
+                    'case_id': row['case_id'], 'section': section, 'text': text,
+                    'evidence_refs': refs, 'verification': verification,
+                    'rating': 'unreviewed', 'reason': ''}
+            if attributed:
+                item['source_scope'] = scope
+            items.append(item)
+    return {'schema_version': 'artemis-eval-ratings/2' if attributed else 'artemis-eval-ratings/1', 'run_sha256': run_sha256,
             'reviewer': '', 'items': items}
 
 
@@ -173,15 +191,17 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
     suite, suite_hash, prepared = load_suite(suite_path)
     outputs = replay_hash = None
     if replay_path is not None:
-        if any(not case['synthetic'] for case, *_ in prepared):
+        if any(not case['synthetic'] or (historical is not None and not historical.report.synthetic)
+               for case, _, _, _, historical in prepared):
             raise EvaluationError('Synthetic replay requires explicitly synthetic source cases')
         outputs, replay_hash = load_replay(replay_path, suite_hash, [case['case_id'] for case, *_ in prepared])
     destination = Path(output_dir)
     # Refuse existing destinations, including symlinks. Never overwrite originals.
     destination.mkdir(parents=False, exist_ok=False)
     implementation = {name: digest(Path(__file__).with_name(name + '.py').read_bytes())
-                      for name in ('evaluation', 'semantic', 'cape', 'ruleset', 'scoring', 'proposals')}
-    run = {'schema_version': 'artemis-eval-run/1', 'suite_name': suite['name'], 'suite_sha256': suite_hash,
+                      for name in ('evaluation', 'semantic', 'cape', 'ruleset', 'scoring', 'proposals', 'historical', 'case_store')}
+    attributed = suite['schema_version'] == 'artemis-eval-suite/2'
+    run = {'schema_version': 'artemis-eval-run/2' if attributed else 'artemis-eval-run/1', 'suite_name': suite['name'], 'suite_sha256': suite_hash,
            'mode': 'synthetic_replay' if outputs is not None else 'local_model',
            'replay_sha256': replay_hash, 'started_at': datetime.now(timezone.utc).isoformat(),
            'prompt_sha256': digest(SYSTEM_PROMPT.encode()), 'implementation_sha256': implementation,
@@ -189,7 +209,7 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
            'model': provider.model if provider else 'synthetic-replay/1',
            'repeat': repeat, 'cases': [case for case, *_ in prepared], 'attempts': [],
            'notice': 'Contract checks are not factual support or detection accuracy. Human ratings are separate.'}
-    for case, report, catalog, assessment in prepared:
+    for case, report, catalog, assessment, historical in prepared:
         for iteration in range(1, repeat + 1):
             started = time.monotonic()
             row = {'case_id': case['case_id'], 'iteration': iteration, 'base_score': assessment.base_score,
@@ -197,7 +217,7 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
                    'explanation': None, 'checks': None}
             active = ReplayProvider('synthetic-replay/1', outputs[case['case_id']]) if outputs is not None else provider
             try:
-                explanation, _ = explain(report, active, catalog=catalog)
+                explanation, _ = explain(report, active, catalog=catalog, historical=historical)
                 packet = explanation['proposal_review']
                 adjustment = packet['adjustment_proposal'] if packet else None
                 critical_negative = bool(adjustment and row['critical'] and adjustment['proposed_delta'] < 0)
@@ -230,6 +250,15 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
                       'critical_negative_blocked': sum(c['critical_negative_blocked'] for c in checks),
                       'base_score_violations': sum(not c['base_score_preserved'] for c in checks),
                       'human_factual_support': None, 'output_variation': variation}
+    if attributed:
+        historical_ids = {case['case_id'] for case, _, _, _, historical in prepared if historical is not None}
+        run['summary']['by_context'] = {}
+        for label, historical_mode in (('current_only', False), ('with_history', True)):
+            rows = [row for row in attempts if (row['case_id'] in historical_ids) == historical_mode]
+            passed = sum(row['status'] == 'accepted' for row in rows)
+            run['summary']['by_context'][label] = {'attempts': len(rows), 'accepted': passed,
+                                                  'failed': len(rows) - passed,
+                                                  'contract_acceptance_fraction': _ratio(passed, len(rows))}
     raw = encode(run)
     (destination / 'run.json.tmp').write_bytes(raw)
     (destination / 'run.json.tmp').replace(destination / 'run.json')
@@ -240,7 +269,8 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
 def summarize_ratings(run_path, ratings_path):
     raw = _read(Path(run_path), MAX_ARTIFACT_BYTES)
     run = _json(raw)
-    if not isinstance(run, dict) or run.get('schema_version') != 'artemis-eval-run/1' or 'summary' not in run:
+    if (not isinstance(run, dict) or run.get('schema_version') not in ('artemis-eval-run/1', 'artemis-eval-run/2')
+            or 'summary' not in run):
         raise EvaluationError('Expected a completed evaluation run')
     expected = review_template(run, digest(raw))
     ratings_raw = _read(Path(ratings_path), MAX_ARTIFACT_BYTES)
@@ -254,8 +284,11 @@ def summarize_ratings(run_path, ratings_path):
     by_id = {item['claim_id']: item for item in expected['items']}
     counts = {section: dict.fromkeys(('supported', 'unsupported', 'uncertain', 'unreviewed'), 0)
               for section in ('source_observations', 'hypotheses', 'adjustment')}
+    attributed = run['schema_version'] == 'artemis-eval-run/2'
+    scopes = {scope: dict.fromkeys(('supported', 'unsupported', 'uncertain', 'unreviewed'), 0)
+              for scope in ('current', 'historical', 'mixed')}
     for item in ratings['items']:
-        _fields(item, 'claim_id case_id section text evidence_refs verification rating reason')
+        _fields(item, 'claim_id case_id section text evidence_refs verification rating reason' + (' source_scope' if attributed else ''))
         if not isinstance(item['claim_id'], str):
             raise EvaluationError('Invalid claim ID')
         original = by_id.pop(item['claim_id'], None)
@@ -268,14 +301,19 @@ def summarize_ratings(run_path, ratings_path):
         if item['rating'] != 'unreviewed':
             _text(ratings['reviewer'], 128); _text(item['reason'])
         counts[item['section']][item['rating']] += 1
-    for values in counts.values():
+        if attributed:
+            scopes[item['source_scope']][item['rating']] += 1
+    for values in (*counts.values(), *scopes.values()):
         total = sum(values.values()); reviewed = total - values['unreviewed']
         values.update(total=total, reviewed=reviewed, coverage=_ratio(reviewed, total),
                       supported_fraction_of_rated=_ratio(values['supported'], reviewed))
-    return {'schema_version': 'artemis-eval-human-summary/1', 'run_sha256': digest(raw),
+    result = {'schema_version': 'artemis-eval-human-summary/2' if attributed else 'artemis-eval-human-summary/1', 'run_sha256': digest(raw),
             'ratings_sha256': digest(ratings_raw), 'reviewer': ratings['reviewer'], 'mode': run['mode'],
             'by_section': counts,
             'notice': 'Human-declared support judgements, not malware accuracy or authenticated review identities.'}
+    if attributed:
+        result['by_source_scope'] = scopes
+    return result
 
 
 def main(argv=None):
