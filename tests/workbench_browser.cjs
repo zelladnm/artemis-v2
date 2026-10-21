@@ -129,9 +129,12 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       assert.match(await page.locator('#semantic-content').textContent(), /来源观察/);
       assert.match(await page.locator('#semantic-content').textContent(), /待验证推测/);
       assert.match(await page.locator('#semantic-content').textContent(), /历史来源/);
-      assert.equal(await page.locator('#semantic-content .historical-evidence').count(), 1);
-      await page.locator('#semantic-content .historical-evidence summary').click();
-      assert.match(await page.locator('#semantic-content .historical-evidence pre').textContent(), /evidence_id/);
+      assert.match(await page.locator('#semantic-content').textContent(), /当前来源观察/);
+      assert.match(await page.locator('#semantic-content').textContent(), /历史来源观察/);
+      assert.match(await page.locator('#semantic-content').textContent(), /跨来源推测/);
+      assert.equal(await page.locator('#semantic-content .historical-evidence').count(), 2);
+      await page.locator('#semantic-content .historical-evidence summary').first().click();
+      assert.match(await page.locator('#semantic-content .historical-evidence pre').first().textContent(), /evidence_id/);
       assert.equal(await page.locator('#clear-historical').isEnabled(), true);
       await page.screenshot({ path: path.join(artifacts, 'semantic-explanation.png'), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
@@ -154,6 +157,9 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       const modelExport = JSON.parse(fs.readFileSync(await (await modelDownloadPromise).path(), 'utf8'));
       assert.equal(modelExport.semantic_review.model, 'test:latest');
       assert.equal(modelExport.semantic_review.schema_version, 'artemis-explanation/2');
+      assert.equal(modelExport.semantic_review.source_attribution_version, 'artemis-source-attribution/1');
+      assert.deepEqual(modelExport.semantic_review.source_observations.map(item => item.source_scope), ['current', 'historical']);
+      assert.equal(modelExport.semantic_review.hypotheses[0].source_scope, 'mixed');
       assert.equal(modelExport.semantic_review.historical_context.report_sha256, sourceHash.match(/[a-f0-9]{64}/)[0]);
       assert.notEqual(modelExport.semantic_review.historical_context.report_sha256, modelExport.report.source_sha256);
       assert.equal(modelExport.rule_assessment.base_score, 1);

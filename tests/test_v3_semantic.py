@@ -133,6 +133,10 @@ class FakeOllama(BaseHTTPRequestHandler):
             if self.server.mode == 'history_adjustment' and context.get('historical_context'):
                 content['source_observations'].append({'text': '历史来源报告记录了一条合成陈述，不能等同于当前行为。',
                     'evidence_refs': [context['historical_context']['evidence'][0]['evidence_id']]})
+                content['hypotheses'][0].update(text='当前与历史合成陈述可能有关，仍需独立验证。',
+                    evidence_refs=[context['evidence'][0]['evidence_id'], context['historical_context']['evidence'][0]['evidence_id']])
+            if self.server.mode == 'mixed_history_observation':
+                content['source_observations'][0]['evidence_refs'].append(context['historical_context']['evidence'][0]['evidence_id'])
             if self.server.mode == 'invalid_refs':
                 content['source_observations'][0]['evidence_refs'] = ['invented']
             value = {'model': 'test:latest', 'done': True, 'done_reason': 'stop',

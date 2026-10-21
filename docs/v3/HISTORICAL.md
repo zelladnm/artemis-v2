@@ -59,14 +59,33 @@ The model receives `artemis-model-context/2` with current `evidence` and a separ
 `historical_context` containing the case/report fingerprints, asserted sample hash
 and source pointer, synthetic label, coverage warnings and selected records. It
 receives the current rule summary; historical rule scores and archive titles are
-excluded. The system prompt version is `artemis-semantic/2` for all new requests.
+excluded. The system prompt version is `artemis-semantic/3` for all new requests.
 
 With selected history, accepted results use `artemis-explanation/2`. Observation
-and hypothesis references may cite either supplied source. Unknown, invented and
+references must belong to one supplied source per item. An observation mixing
+current and historical references is rejected; cross-source associations belong
+in hypotheses with a nonempty verification method. Hypothesis references may cite
+either or both supplied sources. Unknown, invented and
 omitted references are refused. The output retains the sent historical evidence,
 source identities, association kind and coverage counts for later inspection.
 Existing top-level supplied/omitted evidence counts continue to describe only the
 current report; historical counts live inside `historical_context`.
+
+For historical mode, the server adds `source_attribution_version` set to
+`artemis-source-attribution/1` and a `source_scope` on every accepted observation
+and hypothesis. Scope is derived from validated exact references: `current`,
+`historical` or `mixed`. Mixed scope is allowed only for hypotheses. The model
+schema does not accept a `source_scope` field; a model-supplied attribution label
+is rejected rather than trusted. The workbench displays the derived scope above
+each claim and exports the same labels. Normalization copies the model entries
+instead of mutating the provider's output.
+
+These labels identify citation provenance, not the truth or attribution of prose.
+For example, a model may incorrectly write “the current run injected code” while
+citing only a historical record. That item is labelled `historical`, which exposes
+the discrepancy for human review, but the text's factual support is not verified
+automatically. This guard cannot prove resistance to source confusion or prompt
+injection.
 
 Adjustment references must belong **only to supplied current evidence**. Historical
 or mixed-source adjustment citations are rejected. The original report/ruleset
@@ -75,7 +94,7 @@ suggestion remains unapplied until a separate human decision. Citation membershi
 and source labels do not verify that a model's claim follows from its references.
 
 Without selected history, the existing `artemis-explanation/1` single-source
-contract is retained. No archive is loaded or source automatically selected. The
+contract is retained without the new scope fields. No archive is loaded or source automatically selected. The
 HTTP interface accepts one optional `historical_case_id` on `/api/explain`; it
 never accepts a historical file path or browser-supplied historical evidence.
 Ordinary analysis, selection, archive opening and review saving do not generate
@@ -85,7 +104,9 @@ the browser's historical selection.
 ## Validation and remaining evaluation
 
 Synthetic tests cover association/provenance mismatches, unavailable archives,
-stale selection, omitted/fabricated references, cross-source adjustment refusal,
+stale selection, omitted/fabricated references, mixed observation refusal,
+server-derived scopes, model label spoofing, misleading prose with valid historical
+citations, cross-source adjustment refusal,
 context bounds and current critical signals. Loopback HTTP tests verify an explicit
 archive selection reaches a synthetic Ollama service while invalid/default flows
 do not load historical context. Chromium CI creates two distinct sources for the
