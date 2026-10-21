@@ -187,11 +187,19 @@ def _source_scope(refs, current_allowed, historical_allowed):
     return 'mixed' if current and historical else 'current' if current else 'historical'
 
 
-def explain(report, provider: ExplanationProvider, *, catalog=None, evidence_ids=None, historical=None):
+def build_explanation_context(report, catalog=None, evidence_ids=None, *, historical=None):
+    """Build the production context without contacting a provider."""
     context, assessment = build_context(report, catalog, evidence_ids,
         max_bytes=MAX_CONTEXT_BYTES - 4096 if historical is not None else None,
         max_records=MAX_CONTEXT_RECORDS - 8 if historical is not None else None)
-    history = _add_historical_context(context, report, historical) if historical is not None else None
+    if historical is not None:
+        _add_historical_context(context, report, historical)
+    return context, assessment
+
+
+def explain(report, provider: ExplanationProvider, *, catalog=None, evidence_ids=None, historical=None):
+    context, assessment = build_explanation_context(report, catalog, evidence_ids, historical=historical)
+    history = context.get('historical_context')
     generated = provider.generate(context)
     value = generated.get('output') if isinstance(generated, dict) else None
     if not isinstance(value, dict) or set(value) != set(OUTPUT_SCHEMA['required']):

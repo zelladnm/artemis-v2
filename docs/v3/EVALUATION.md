@@ -10,6 +10,17 @@ bundled cases and replay were authored together as synthetic regression scenario
 they are not an independent labelled malware dataset. No real model quality or
 thesis accuracy result has been reproduced by this delivery.
 
+## Prepare private sources without a model
+
+Use `python -m artemis_v3.evaluation prepare` to copy explicitly selected local
+report/ruleset bytes, compute fingerprints and generate a suite/2 draft plus a
+production-context preview. Expected rule results and reference notes remain blank
+for independent analyst annotation. `check --suite ...` validates an annotated
+suite and its production context without a model, writes no files and reports
+omissions. A blank draft is refused by both check and run. See
+[PREPARATION.md](PREPARATION.md) for commands, output files and exit codes.
+Preparing a copy does not anonymize it or establish real-data/model quality.
+
 ## Offline run
 
 From the repository root, choose a **new** output directory whose parent exists:

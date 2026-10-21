@@ -51,6 +51,10 @@ python -m artemis_v3.evaluation review --run ../artemis-history-acceptance/run.j
 
 ## Lite 实际试用前的剩余验收
 
+可先用 [PREPARATION.md](PREPARATION.md) 的 `evaluation prepare` 从本地报告生成
+指纹绑定的草稿，填写独立预期后执行 `evaluation check`。准备与预检不调用模型，
+不替代下表的真实格式、模型、人工判断与省时测量。
+
 | 优先级 | 任务 | 完成证据 |
 |---|---|---|
 | P0 | 实际脱敏 CAPE 格式契约 | CAPE/处理器版本；正常、失败、稀疏、大报告的字段/状态/时间核对 |

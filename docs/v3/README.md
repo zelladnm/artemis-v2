@@ -8,6 +8,9 @@ The integrated acceptance branch also incorporates the previously separate VT
 response fix. See [the current acceptance checklist](ACCEPTANCE.md) for reproducible
 commands, completed engineering scope and remaining real-data/model validation.
 Draft branches have not been merged into main or released.
+The [local suite preparation commands](PREPARATION.md) copy selected reports into
+a fingerprinted draft and preflight its production context without a model;
+analysts still supply independent rule expectations and reference notes.
 
 ## Quick start (Python 3.11+)
 
