@@ -290,7 +290,10 @@ function renderSemantic() {
     target.append(el('h2', title));
     if (!explanation[key].length) target.append(el('p', '模型未提供该类条目。', 'muted'));
     for (const entry of explanation[key]) {
-      const card = el('div', undefined, 'panel'); card.append(el('p', entry.text));
+      const card = el('div', undefined, 'panel');
+      const scope = entry.source_scope || (historical ? 'unknown' : 'current');
+      const sourceLabel = { current: '当前来源', historical: '历史来源', mixed: '跨来源', unknown: '来源归属未标注' }[scope] || '来源归属未标注';
+      card.append(el('span', sourceLabel + (key === 'source_observations' ? '观察' : '推测'), 'pill source-scope'), el('p', entry.text));
       if (entry.verification) card.append(el('p', '验证方法：' + entry.verification));
       for (const ref of entry.evidence_refs) {
         if (byId.has(ref)) { const link = evidenceLink(byId.get(ref)); link.textContent = '当前来源 · ' + link.textContent; card.append(link); }

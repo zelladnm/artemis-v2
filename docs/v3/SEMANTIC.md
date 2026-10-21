@@ -64,7 +64,7 @@ Proposals reuse `artemis-proposal/1` validation against the exact report and rul
 Critical negative adjustments remain blocked. Base score, proposed adjustment
 and the separately approved analyst score retain their existing meanings.
 Explanations record model identity/artifact digest, metadata/response/context
-hashes and prompt version `artemis-semantic/2`. These aid traceability, not
+hashes and prompt version `artemis-semantic/3`. These aid traceability, not
 authentication or guaranteed reproducibility.
 
 ## Transport and failure behavior
@@ -108,3 +108,6 @@ regressions, not the independent corpus or real-model quality validation above.
 source, with separate historical citations and unchanged current-only adjustment
 references. This mode uses `artemis-explanation/2`; default single-source output
 retains version 1. Its total context remains within the existing byte/record caps.
+Historical-mode observations must cite one source per item. Scope labels are
+server-derived from validated references; cross-source associations remain
+hypotheses with verification steps, and factual support still needs review.

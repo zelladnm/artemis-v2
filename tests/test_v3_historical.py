@@ -44,7 +44,7 @@ class HistoricalTests(unittest.TestCase):
     def test_history_observations_are_bound_to_sent_source_and_total_budget(self):
         result, raw = explain(self.report, self.provider, catalog=self.catalog, historical=self.historical)
         self.assertEqual(result['schema_version'], 'artemis-explanation/2')
-        self.assertEqual(result['prompt_version'], 'artemis-semantic/2')
+        self.assertEqual(result['prompt_version'], 'artemis-semantic/3')
         self.assertIsNone(raw)
         history = result['historical_context']; context = self.provider.context
         self.assertEqual(history['case_id'], self.metadata['case_id'])
@@ -58,6 +58,51 @@ class HistoricalTests(unittest.TestCase):
         self.assertNotIn('rule_summary', history)
         self.assertNotIn('ruleset_sha256', history)
         self.assertEqual(result['source_observations'][0]['evidence_refs'][0].split('#')[0], history['report_sha256'])
+
+    def test_server_derives_scopes_without_mutating_or_trusting_model_output(self):
+        first, _ = explain(self.report, self.provider, historical=self.historical)
+        current = first['supplied_evidence_ids'][0]
+        historical = first['historical_context']['evidence'][0]['evidence_id']
+        value = output(current)
+        value['source_observations'].append({'text': '历史来源的合成陈述。', 'evidence_refs': [historical]})
+        value['hypotheses'][0]['evidence_refs'] = [historical, current]
+        self.provider.value = value
+        original = copy.deepcopy(value)
+        result, _ = explain(self.report, self.provider, historical=self.historical)
+        self.assertEqual([entry['source_scope'] for entry in result['source_observations']], ['current', 'historical'])
+        self.assertEqual(result['hypotheses'][0]['source_scope'], 'mixed')
+        self.assertEqual(result['source_attribution_version'], 'artemis-source-attribution/1')
+        self.assertEqual(value, original)
+        result['source_observations'][0]['evidence_refs'].append('changed-result')
+        self.assertEqual(value, original)
+        for section in ('source_observations', 'hypotheses'):
+            self.provider.value = copy.deepcopy(original)
+            self.provider.value[section][0]['source_scope'] = 'current'
+            with self.subTest(section=section), self.assertRaises(SemanticError):
+                explain(self.report, self.provider, historical=self.historical)
+
+    def test_mixed_source_observations_are_rejected_but_hypotheses_need_verification(self):
+        first, _ = explain(self.report, self.provider, historical=self.historical)
+        refs = [first['supplied_evidence_ids'][0], first['historical_context']['evidence'][0]['evidence_id']]
+        for ordered in (refs, refs[::-1]):
+            value = output(ordered[0]); value['source_observations'][0]['evidence_refs'] = ordered
+            self.provider.value = value
+            with self.subTest(ordered=ordered), self.assertRaisesRegex(SemanticError, 'one source'):
+                explain(self.report, self.provider, historical=self.historical)
+        value = output(refs[0]); value['hypotheses'][0]['evidence_refs'] = refs
+        value['hypotheses'][0]['verification'] = ' '
+        self.provider.value = value
+        with self.assertRaises(SemanticError):
+            explain(self.report, self.provider, historical=self.historical)
+
+    def test_attribution_labels_do_not_claim_to_validate_the_model_prose(self):
+        # Intentionally false attribution in prose: a valid historical ref cannot prove a current event.
+        first, _ = explain(self.report, self.provider, historical=self.historical)
+        self.provider.value = output(first['historical_context']['evidence'][0]['evidence_id'])
+        self.provider.value['source_observations'][0]['text'] = '当前分析已确认发生注入。'
+        result, _ = explain(self.report, self.provider, historical=self.historical)
+        self.assertEqual(result['source_observations'][0]['source_scope'], 'historical')
+        self.assertEqual(result['verdict'], 'not_assessed'); self.assertTrue(result['review_required'])
 
     def test_unsent_historical_refs_and_historical_adjustment_refs_are_rejected(self):
         result, _ = explain(self.report, self.provider, historical=self.historical)
@@ -169,6 +214,18 @@ class HistoricalHTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(result['semantic_review']['schema_version'], 'artemis-explanation/1')
         self.assertNotIn('historical_context', result['semantic_review'])
+        self.assertNotIn('source_attribution_version', result['semantic_review'])
+        self.assertTrue(all('source_scope' not in entry for key in ('source_observations', 'hypotheses')
+                            for entry in result['semantic_review'][key]))
+
+    def test_mixed_observation_fails_without_changing_current_evidence_or_score(self):
+        self.ollama.mode = 'mixed_history_observation'
+        status, result = self.request('/api/explain', {**self.payload, 'historical_case_id': self.metadata['case_id']})
+        self.assertEqual(status, 200); self.assertEqual(result['model_status'], 'failed')
+        self.assertIn('one source', result['semantic_error'])
+        self.assertEqual(result['rule_assessment']['base_score'], 1)
+        self.assertEqual(len(result['report']['evidence']), 9)
+        self.assertNotIn('semantic_review', result); self.assertNotIn('suggestion_file_b64', result)
 
     def test_invalid_selection_keeps_current_evidence_and_never_calls_model(self):
         wrong = save_case(self.database, report_bytes(sample='b'*64), synthetic=True)['case']['case_id']
