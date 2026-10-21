@@ -128,3 +128,13 @@ nav button{white-space:nowrap;font-size:12px}
 .archive-record button{margin:4px 8px 4px 0}
 .historical-evidence summary{cursor:pointer;color:var(--blue);font-size:12px;overflow-wrap:anywhere}
 #semantic-content code{overflow-wrap:anywhere;font-size:10px}
+.claim-fields{display:grid;grid-template-columns:minmax(130px,1fr) minmax(0,3fr);gap:15px;border-top:1px solid var(--line);padding-top:15px;margin-top:15px}
+.claim-fields select,.claim-fields textarea{display:block;width:100%;margin-top:6px}
+.claim-card p{overflow-wrap:anywhere}
+#claim-controls{border-top:1px solid var(--line);padding-top:20px;margin:20px 0}
+#claim-controls input{display:block;width:100%;max-width:380px;margin:6px 0 14px}
+#claim-summary,#claim-status{font-size:12px;overflow-wrap:anywhere}
+#claim-history-panel{margin-top:25px;border-top:1px solid var(--line);padding-top:16px}
+#claim-history-panel>summary{cursor:pointer;font-weight:600;color:var(--blue)}
+#claim-history-panel>p{font-size:12px}
+@media(max-width:650px){.claim-fields{grid-template-columns:1fr}}

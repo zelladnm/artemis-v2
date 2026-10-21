@@ -25,7 +25,14 @@
 <nav id="tabs" aria-label="调查视图"><button data-tab="overview" class="selected">调查概览</button><button data-tab="process">进程树</button><button data-tab="timeline">行为时间线</button><button data-tab="evidence">证据浏览</button><button data-tab="semantic">模型解释</button><button data-tab="review">人工复核</button></nav>
 <section id="overview" class="view"></section><section id="process" class="view" hidden></section><section id="timeline" class="view" hidden></section>
 <section id="evidence" class="view" hidden><div class="toolbar"><input id="search" placeholder="检索 API、域名、路径或 JSON 位置" aria-label="检索证据"><select id="category" aria-label="证据类型"><option value="">全部类型</option></select></div><p id="evidence-count" class="muted"></p><div id="evidence-list"></div></section>
-<section id="semantic" class="view" hidden><div id="semantic-content"></div><button id="use-suggestion" hidden>将此建议送人工复核</button></section>
+<section id="semantic" class="view" hidden>
+<form id="claim-form"><div id="semantic-content"></div><div id="claim-controls" hidden>
+<h2>保存逐条核验</h2><p class="muted">核对陈述是否受到所引证据支持。尚未核对的条目保留“未核验”；该判断不会批准评分调整。</p>
+<p id="claim-summary"></p><label>核验人<input id="claim-reviewer" maxlength="100" required placeholder="本地声明身份"></label>
+<button id="claim-save" type="submit">保存逐条核验</button><p id="claim-status" role="status" aria-live="polite"></p>
+</div></form><button id="use-suggestion" type="button" hidden>将此建议送人工复核</button>
+<details id="claim-history-panel"><summary>当前来源的核验历史</summary><p class="muted">按当前报告、规则和合成标记匹配。可恢复已保存的解释与核验，继续修订。</p><button id="claim-history" type="button" class="secondary">刷新核验历史</button><p id="claim-history-status" role="status"></p><div id="claim-history-list"></div></details>
+</section>
 <section id="review" class="view" hidden><div id="proposal-summary"></div><form id="review-form"><h2>记录人工复核</h2><p id="review-status" class="muted"></p><div class="form-grid"><label>复核人<input id="reviewer" maxlength="100" required placeholder="本地声明身份"></label><label>决定<select id="decision"><option value="defer">暂缓，补充证据</option><option value="reject">拒绝建议</option><option value="approve">批准建议</option></select></label><label>校正值（−10 至 10）<input id="delta" type="number" min="-10" max="10" value="0" required></label><label>上一条复核 ID<input id="previous-id" placeholder="首次留空；修订时从历史复制"></label></div><label>建议理由<textarea id="rationale" maxlength="500" required placeholder="解释为何提出这个校正建议"></textarea></label><label>复核理由<textarea id="reason" maxlength="1000" required placeholder="记录支持此决定的依据与仍待确认的问题"></textarea></label><p id="citation-status" class="muted">到“证据浏览”勾选 1–32 条来源证据。</p><button id="submit-review">保存复核记录</button><p id="review-result" role="status"></p></form><div class="history-title"><h2>本地复核历史</h2><button id="history" type="button" class="secondary">刷新历史</button></div><div id="history-list"></div></section>
 </div>
 <footer>Artemis v3 · 证据是来源陈述，规则分数不是恶意性概率。原始报告与规则集请另行保留。</footer>

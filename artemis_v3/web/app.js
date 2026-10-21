@@ -6,6 +6,8 @@ let inputs = {}, result = null, selected = new Set(), busy = false;
 const versions = {};
 let modelConfig = { model_enabled: false };
 let historicalSelection = null, archivedChoices = new Map();
+let claimDraft = null, claimReceipt = null, claimDirty = false;
+const ratingLabels = { unreviewed: '未核验', supported: '有证据支持', unsupported: '证据不支持', uncertain: '不确定' };
 function historyEligible(item) {
   return Boolean(item && result && modelConfig.model_enabled && result.source_identity?.sample_sha256 &&
     item.sample_sha256 === result.source_identity.sample_sha256 && item.synthetic === result.report.synthetic &&
@@ -36,6 +38,7 @@ function setBusy(value) {
   $('submit-review').disabled = value || !reviewEnabled || !result?.rule_assessment;
   $('analyze').textContent = value ? '处理中…' : '开始调查';
   updateModelControls();
+  updateClaimControls();
 }
 async function api(path, data) {
   const response = await fetch(path, {
@@ -49,12 +52,14 @@ async function api(path, data) {
 }
 function clearCase() {
   result = null; selected.clear(); $('case').hidden = true; $('empty').hidden = false;
+  clearClaims();
   $('review-result').textContent = ''; message();
   updateModelControls();
 }
 function clearHistoricalSelection() {
   historicalSelection = null; delete inputs.historical_case_id;
   if (result) { delete result.semantic_review; delete result.semantic_error; delete result.suggestion_file_b64; result.model_status = modelConfig.model_enabled ? 'configured' : 'not_configured'; }
+  clearClaims();
 }
 async function readFile(input, name, limit) {
   const version = versions[name] = (versions[name] || 0) + 1;
@@ -80,7 +85,7 @@ for (const [id, name, limit] of [['report-file', 'report', 10 * 1024 ** 2], ['ru
 $('synthetic').addEventListener('change', () => { inputs.synthetic = $('synthetic').checked; clearHistoricalSelection(); clearCase(); });
 async function analyze() {
   message(); setBusy(true);
-  try { result = await api('/api/analyze', inputs); selected.clear(); render(); showTab('overview'); }
+  try { const response = await api('/api/analyze', inputs); clearClaims(); result = response; selected.clear(); render(); showTab('overview'); }
   catch (error) { clearCase(); message(error.message); }
   finally { setBusy(false); }
 }
@@ -228,7 +233,7 @@ $('review-form').addEventListener('submit', async event => {
   setBusy(true); message();
   try {
     const reviewed = await api('/api/review', { ...inputs, review_request: request });
-    result = { ...reviewed, semantic_review: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64 };
+    result = { ...reviewed, semantic_review: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64, claim_review: result.claim_review };
     if (result.semantic_review) result.model_status = 'completed';
     $('review-result').textContent = '已保存：' + reviewed.analyst_review.review_id + ' · 规则原始分数保持 ' + reviewed.analyst_review.base_score;
     if ($('proposal-decision')) $('proposal-decision').textContent = '已保存人工决定：' + ({ approve: '批准建议', reject: '拒绝建议', defer: '暂缓决定' }[reviewed.analyst_review.decision]) + '。详见下方复核记录。';
@@ -256,14 +261,114 @@ function download(content, filename, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const link = el('a'); link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-$('export-json').addEventListener('click', () => { if (result) download(JSON.stringify(result, null, 2), 'artemis-investigation.json', 'application/json'); });
+function exportSnapshot() {
+  return { ...result, ...(claimDirty ? { claim_review_draft: { status: 'unsaved', ...claimDraft } } : {}) };
+}
+$('export-json').addEventListener('click', () => { if (result) download(JSON.stringify(exportSnapshot(), null, 2), 'artemis-investigation.json', 'application/json'); });
 $('export-md').addEventListener('click', () => {
   if (!result) return;
-  const escaped = JSON.stringify(result, null, 2).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('`', '&#96;');
+  const escaped = JSON.stringify(exportSnapshot(), null, 2).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('`', '&#96;');
   download('# Artemis v3 调查报告\n\n' + (result.report.synthetic || result.ruleset_synthetic ? '**合成演示数据**\n\n' : '') + '规则分数不是恶意性概率；最终结论由分析师复核。\n\n<pre>' + escaped + '</pre>\n', 'artemis-investigation.md', 'text/markdown');
 });
 
+function clearClaims() {
+  claimDraft = null; claimReceipt = null; claimDirty = false;
+  if (result) delete result.claim_review;
+  $('claim-reviewer').value = ''; $('claim-history-list').replaceChildren(); $('claim-history-status').textContent = '';
+}
+function acceptGeneration(response) {
+  clearClaims();
+  result = { ...result, model_status: response.model_status || 'restored', semantic_review: response.semantic_review || null,
+    semantic_error: response.semantic_error || null, suggestion_file_b64: response.suggestion_file_b64 || null };
+  claimReceipt = response.claim_receipt || null;
+  claimDraft = response.claim_template || null;
+  if (response.claim_review) applyClaimRecord(response.claim_review);
+}
+function applyClaimRecord(record) {
+  result.claim_review = record;
+  claimDraft = { generation_sha256: record.generation_sha256, reviewer: record.reviewer, expected_previous_id: record.review_id,
+    items: record.items.map(({ claim_id, rating, reason }) => ({ claim_id, rating, reason })) };
+  $('claim-reviewer').value = record.reviewer; claimDirty = false;
+}
+function updateClaimControls() {
+  $('claim-controls').hidden = !claimDraft;
+  $('claim-history').disabled = busy || !result || !reviewEnabled;
+  for (const button of $('claim-history-list').querySelectorAll('button')) button.disabled = busy;
+  $('claim-save').disabled = busy || !reviewEnabled || !claimReceipt || !claimDraft?.items.length;
+  $('claim-reviewer').disabled = busy || !reviewEnabled;
+  for (const field of $('semantic-content').querySelectorAll('.claim-rating, .claim-reason')) field.disabled = busy || !reviewEnabled;
+  if (!claimDraft) return;
+  const items = claimDraft.items, counts = Object.fromEntries(Object.keys(ratingLabels).map(key => [key, items.filter(item => item.rating === key).length]));
+  $('claim-summary').textContent = '已核验 ' + (items.length - counts.unreviewed) + ' / ' + items.length + ' 条 · ' +
+    Object.keys(ratingLabels).map(key => ratingLabels[key] + ' ' + counts[key]).join(' · ');
+  $('claim-status').textContent = !reviewEnabled ? '启动时配置 --review-db 后可保存逐条核验。' : claimDirty ?
+    '有未保存的更改。导出时会单独标为草稿。' : result.claim_review ?
+    '已保存 · 版本 ' + result.claim_review.revision + ' · ' + result.claim_review.review_id : '尚未保存，所有条目默认未核验。';
+}
+function renderClaimFields(card, claimId) {
+  const item = claimDraft?.items.find(entry => entry.claim_id === claimId);
+  if (!item) return;
+  card.dataset.claimId = claimId;
+  const fields = el('div', undefined, 'claim-fields');
+  const label = el('label', '证据支持程度'), rating = el('select', undefined, 'claim-rating');
+  rating.setAttribute('aria-label', '证据支持程度 ' + claimId);
+  for (const [value, text] of Object.entries(ratingLabels)) rating.append(new Option(text, value));
+  rating.value = item.rating; label.append(rating);
+  const reasonLabel = el('label', '核验理由'), reason = el('textarea', undefined, 'claim-reason');
+  reason.maxLength = 1000; reason.value = item.reason; reason.required = item.rating !== 'unreviewed';
+  reason.setAttribute('aria-label', '核验理由 ' + claimId); reason.placeholder = '说明哪些字段支持或反驳该陈述，或还缺少什么证据'; reasonLabel.append(reason);
+  rating.addEventListener('change', () => { item.rating = rating.value; reason.required = item.rating !== 'unreviewed'; claimDirty = true; updateClaimControls(); });
+  reason.addEventListener('input', () => { item.reason = reason.value; claimDirty = true; updateClaimControls(); });
+  fields.append(label, reasonLabel); card.append(fields);
+}
+$('claim-reviewer').addEventListener('input', () => {
+  if (!claimDraft) return;
+  claimDraft.reviewer = $('claim-reviewer').value; claimDirty = true; updateClaimControls();
+});
+$('claim-form').addEventListener('submit', async event => {
+  event.preventDefault(); if (busy || !result?.semantic_review || !claimDraft) return;
+  setBusy(true); message();
+  try {
+    const response = await api('/api/claims/save', { ...inputs,
+      generation: { explanation: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64 || null },
+      claim_receipt: claimReceipt, claim_request: claimDraft });
+    applyClaimRecord(response.claim_review); renderSemantic();
+    await claimHistory();
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+async function claimHistory() {
+  const response = await api('/api/claims/list', inputs);
+  const target = $('claim-history-list'); target.replaceChildren();
+  $('claim-history-status').textContent = '匹配 ' + response.reviews.length + ' 条核验记录（最多 ' + response.limit + ' 条）。';
+  for (const record of response.reviews) {
+    const card = el('div', undefined, 'history-record');
+    card.append(el('strong', record.reviewer + ' · 版本 ' + record.revision), el('code', record.reviewed_at),
+      el('p', '已核验 ' + record.summary.reviewed + ' / ' + record.summary.total + ' 条'), el('code', record.review_id));
+    const open = el('button', '载入此核验', 'secondary'); open.type = 'button'; open.disabled = busy;
+    open.addEventListener('click', async () => {
+      if (busy) return;
+      setBusy(true); message();
+      try {
+        const restored = await api('/api/claims/open', { ...inputs, claim_review_id: record.review_id });
+        historicalSelection = null; delete inputs.historical_case_id;
+        acceptGeneration(restored); renderSemantic();
+      } catch (error) { message(error.message); }
+      finally { setBusy(false); }
+    });
+    card.append(open); target.append(card);
+  }
+}
+$('claim-history').addEventListener('click', async () => {
+  if (busy || !result) return;
+  setBusy(true); message();
+  try { await claimHistory(); }
+  catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+
 function renderSemantic() {
+  updateClaimControls();
   const target = $('semantic-content'); target.replaceChildren(el('h2', '有证据引用的模型解释'));
   if (historicalSelection) {
     const selection = el('div', undefined, 'panel');
@@ -289,8 +394,8 @@ function renderSemantic() {
   for (const [key, title] of [['source_observations', '来源观察 · 模型概括'], ['hypotheses', '待验证推测']]) {
     target.append(el('h2', title));
     if (!explanation[key].length) target.append(el('p', '模型未提供该类条目。', 'muted'));
-    for (const entry of explanation[key]) {
-      const card = el('div', undefined, 'panel');
+    for (const [index, entry] of explanation[key].entries()) {
+      const card = el('div', undefined, 'panel claim-card');
       const scope = entry.source_scope || (historical ? 'unknown' : 'current');
       const sourceLabel = { current: '当前来源', historical: '历史来源', mixed: '跨来源', unknown: '来源归属未标注' }[scope] || '来源归属未标注';
       card.append(el('span', sourceLabel + (key === 'source_observations' ? '观察' : '推测'), 'pill source-scope'), el('p', entry.text));
@@ -303,20 +408,27 @@ function renderSemantic() {
             el('pre', JSON.stringify(historicalById.get(ref), null, 2))); card.append(details);
         }
       }
-      target.append(card);
+      renderClaimFields(card, key + ':' + index); target.append(card);
     }
   }
   target.append(el('h2', '局限与后续核查'));
   for (const limitation of explanation.limitations) target.append(el('p', limitation, 'muted'));
-  if (explanation.proposal_review) target.append(el('div', '模型提出了校正建议，尚未应用。可送交人工复核。', 'warning'));
+  if (explanation.proposal_review) {
+    const proposal = explanation.proposal_review.adjustment_proposal;
+    const card = el('div', undefined, 'panel claim-card');
+    card.append(el('h2', '评分校正理由 · 事实核验'), el('p', proposal.rationale),
+      el('p', '建议校正 ' + proposal.proposed_delta + '；是否采纳须另行记录评分复核决定。', 'muted'));
+    for (const ref of proposal.cited_evidence) if (byId.has(ref)) card.append(evidenceLink(byId.get(ref)));
+    renderClaimFields(card, 'adjustment:0'); target.append(card);
+  }
+  updateClaimControls();
 }
 $('explain').addEventListener('click', async () => {
   if (!result || busy) return;
   setBusy(true); message();
   try {
     const response = await api('/api/explain', { ...inputs, ...(selected.size ? { explanation_evidence_ids: [...selected] } : {}) });
-    result = { ...result, model_status: response.model_status, semantic_review: response.semantic_review || null,
-      semantic_error: response.semantic_error || null, suggestion_file_b64: response.suggestion_file_b64 || null };
+    acceptGeneration(response);
     renderSemantic(); showTab('semantic');
   } catch (error) { message(error.message); }
   finally { setBusy(false); }
@@ -329,7 +441,7 @@ $('use-suggestion').addEventListener('click', async () => {
     const proposedInputs = { ...inputs, proposal: previous.suggestion_file_b64 };
     const response = await api('/api/analyze', proposedInputs);
     inputs = proposedInputs;
-    result = { ...response, model_status: 'completed', semantic_review: previous.semantic_review, suggestion_file_b64: previous.suggestion_file_b64 };
+    result = { ...response, model_status: 'completed', semantic_review: previous.semantic_review, suggestion_file_b64: previous.suggestion_file_b64, claim_review: previous.claim_review };
     $('proposal-file').value = ''; $('input-status').textContent = '当前建议来自本地模型，待人工复核';
     selected.clear(); render(); showTab('review');
   } catch (error) { message(error.message); }
@@ -354,7 +466,7 @@ function renderArchives(response) {
       setBusy(true); message();
       try {
         const opened = await api('/api/cases/open', { case_id: item.case_id });
-        inputs = opened.inputs; result = { ...opened.result, archived_case: opened.archived_case }; selected.clear();
+        clearClaims(); inputs = opened.inputs; result = { ...opened.result, archived_case: opened.archived_case }; selected.clear();
         historicalSelection = null;
         for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
         $('synthetic').checked = inputs.synthetic;

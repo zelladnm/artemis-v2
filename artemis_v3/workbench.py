@@ -12,6 +12,7 @@ import secrets
 
 from .cape import MAX_BYTES, parse_cape_report
 from .case_store import list_cases, open_case, save_case, source_identity
+from .claim_review import check_saved_inputs, issue_receipt, list_claim_reviews, record_claim_review, review_template
 from .historical import load_historical_source
 from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
@@ -76,6 +77,7 @@ class WorkbenchServer(ThreadingHTTPServer):
     def __init__(self, port=8765, *, review_db=None, semantic_provider=None, case_db=None):
         self.semantic_provider = semantic_provider
         self.token = secrets.token_urlsafe(32)
+        self.claim_receipt_key = secrets.token_bytes(32)  # never exposed to the browser
         self.review_db = Path(review_db).resolve() if review_db else None
         self.case_db = Path(case_db).resolve() if case_db else None
         if self.review_db is not None and self.review_db == self.case_db:
@@ -164,7 +166,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         self.close_connection = True
         if not self._allowed(api=True):
             return self._send(403, {'error': 'Local origin or request token rejected'})
-        if self.path not in ('/api/analyze', '/api/review', '/api/explain', '/api/cases/save', '/api/cases/search', '/api/cases/open'):
+        if self.path not in ('/api/analyze', '/api/review', '/api/explain', '/api/cases/save', '/api/cases/search', '/api/cases/open',
+                             '/api/claims/save', '/api/claims/list', '/api/claims/open'):
             return self._send(404, {'error': 'Not found'})
         lengths = self.headers.get_all('Content-Length', [])
         if (len(lengths) != 1 or len(lengths[0]) > 9 or not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -204,6 +207,30 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                     synthetic=payload.get('synthetic', False), title=payload.get('archive_title', '')))
             if self.server.semantic_provider is not None:
                 result['model_status'] = 'configured'
+            if self.path.startswith('/api/claims/'):
+                if not self.server.review_db:
+                    return self._send(409, {'error': 'Claim review requires startup --review-db'})
+                if self.path == '/api/claims/save':
+                    record = record_claim_review(self.server.review_db, report, catalog, payload.get('generation'),
+                        payload.get('claim_receipt'), self.server.claim_receipt_key, payload.get('claim_request'))
+                    return self._send(200, {'claim_review': record})
+                if self.path == '/api/claims/list':
+                    records = list_claim_reviews(self.server.review_db, report, catalog)
+                    return self._send(200, {'reviews': [{key: record[key] for key in
+                        ('review_id', 'generation_sha256', 'revision', 'reviewed_at', 'reviewer', 'summary')} for record in records],
+                        'limit': 20})
+                if not isinstance(payload.get('claim_review_id'), str):
+                    raise ValueError('Opening a claim review requires its ID')
+                records = list_claim_reviews(self.server.review_db, report, catalog, review_id=payload['claim_review_id'])
+                if not records:
+                    raise ValueError('Saved claim review was not found for these report bytes, rules and provenance')
+                record = records[0]
+                check_saved_inputs(record, report, catalog)
+                generation = record['generation']
+                return self._send(200, {'semantic_review': generation['explanation'],
+                    'suggestion_file_b64': generation['suggestion_file_b64'], 'claim_review': record,
+                    'claim_receipt': issue_receipt(self.server.claim_receipt_key, generation),
+                    'claim_template': review_template(generation)})
             if self.path == '/api/explain':
                 if self.server.semantic_provider is None:
                     return self._send(409, {'error': 'Start with --ollama-model to enable explicit local explanations'})
@@ -214,8 +241,12 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                                                             _decode(payload['report'], MAX_BYTES))
                     explanation, suggestion = explain(report, self.server.semantic_provider, catalog=catalog,
                                                        evidence_ids=payload.get('explanation_evidence_ids'), historical=historical)
+                    generation = {'explanation': explanation,
+                                  'suggestion_file_b64': base64.b64encode(suggestion).decode() if suggestion else None}
                     result.update(model_status='completed', semantic_review=explanation,
-                                  suggestion_file_b64=base64.b64encode(suggestion).decode() if suggestion else None)
+                                  suggestion_file_b64=generation['suggestion_file_b64'],
+                                  claim_receipt=issue_receipt(self.server.claim_receipt_key, generation),
+                                  claim_template=review_template(generation))
                 except SemanticError as exc:
                     result.update(model_status='failed', semantic_error=str(exc))
             if self.path == '/api/review':
