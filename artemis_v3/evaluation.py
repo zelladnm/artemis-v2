@@ -1,5 +1,6 @@
 """Reproducible local semantic evaluation; factual support requires human ratings."""
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -8,10 +9,11 @@ import re
 import time
 
 from .cape import MAX_BYTES, parse_cape_report
+from .case_store import source_identity
 from .historical import prepare_historical_source
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
 from .scoring import assess_signatures
-from .semantic import OllamaLocalProvider, SemanticError, SYSTEM_PROMPT, explain
+from .semantic import OllamaLocalProvider, SemanticError, SYSTEM_PROMPT, build_explanation_context, explain
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 MAX_CASES = 16
@@ -24,6 +26,11 @@ class EvaluationError(ValueError):
 
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def implementation_fingerprints():
+    return {name: digest(Path(__file__).with_name(name + '.py').read_bytes())
+            for name in ('evaluation', 'semantic', 'cape', 'ruleset', 'scoring', 'proposals', 'historical', 'case_store')}
 
 
 def encode(value):
@@ -82,6 +89,114 @@ def _source(root, relative, expected, limit):
     return raw
 
 
+def _case_identifier(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', value):
+        raise EvaluationError('Case IDs must be bounded identifiers')
+
+
+def _context_preview(report, catalog, historical):
+    try:
+        context, _ = build_explanation_context(report, catalog, historical=historical)
+    except SemanticError as exc:
+        return {'ready': False, 'model_called': False, 'error': str(exc)}, None
+    current_ids = [item['evidence_id'] for item in context['evidence']]
+    history = context.get('historical_context')
+    return {'ready': True, 'model_called': False, 'error': None,
+            'current_evidence_ids': current_ids,
+            'current_omitted': len(report.evidence) - len(current_ids),
+            'historical_evidence_ids': [item['evidence_id'] for item in history['evidence']] if history else [],
+            'historical_omitted': history['omitted_evidence_count'] if history else 0}, context
+
+
+def _source_profile(report, raw):
+    return {**source_identity(raw), 'synthetic': report.synthetic, 'schema_version': report.schema_version,
+            'evidence_count': len(report.evidence), 'category_counts': dict(Counter(item.category for item in report.evidence)),
+            'coverage_warning_count': len(report.warnings), 'coverage_warnings': report.warnings[:32]}
+
+
+def prepare_suite(report_path, ruleset_path, output_dir, *, case_id, name='Local CAPE evaluation draft',
+                  historical_path=None, synthetic=False):
+    """Copy explicit local sources into a draft; never infer human expectations."""
+    _case_identifier(case_id); _text(name, 128)
+    if type(synthetic) is not bool:
+        raise EvaluationError('Source synthetic provenance must be boolean')
+    report_raw = _read(Path(report_path), MAX_BYTES)
+    rules_raw = _read(Path(ruleset_path), MAX_RULESET_BYTES)
+    historical_raw = _read(Path(historical_path), MAX_BYTES) if historical_path is not None else b''
+    if len(report_raw) + len(rules_raw) + len(historical_raw) > MAX_SUITE_SOURCE_BYTES:
+        raise EvaluationError('Suite source data exceeds 32 MiB')
+    report = parse_cape_report(report_raw, synthetic=synthetic)
+    catalog = parse_ruleset(rules_raw)
+    historical = (prepare_historical_source('evaluation-source:' + digest(historical_raw), historical_raw,
+                                           report, report_raw, synthetic=synthetic)
+                  if historical_path is not None else None)
+    assessment = assess_signatures(report, catalog.rules, version=catalog.version)
+    preview, context = _context_preview(report, catalog, historical)
+    sources = {'sources/report.json': report_raw, 'sources/ruleset.json': rules_raw}
+    history = None
+    if historical is not None:
+        sources['sources/historical-report.json'] = historical_raw
+        history = {'report': 'sources/historical-report.json', 'report_sha256': digest(historical_raw),
+                   'synthetic': synthetic}
+    case = {'case_id': case_id, 'report': 'sources/report.json', 'report_sha256': digest(report_raw),
+            'ruleset': 'sources/ruleset.json', 'ruleset_sha256': catalog.source_sha256, 'synthetic': synthetic,
+            'expected_base_score': None, 'expected_critical': None, 'reference_notes': '', 'historical': history}
+    suite = {'schema_version': 'artemis-eval-suite/2', 'name': name, 'cases': [case]}
+    preparation = {'schema_version': 'artemis-eval-preparation/1', 'status': 'draft', 'model_called': False,
+                   'draft_suite_sha256': digest(encode(suite)), 'case_id': case_id,
+                   'implementation_sha256': implementation_fingerprints(),
+                   'current_source': _source_profile(report, report_raw),
+                   'historical_source': _source_profile(historical.report, historical_raw) if historical else None,
+                   'ruleset': {'sha256': catalog.source_sha256, 'version': catalog.version, 'synthetic': catalog.synthetic},
+                   'observed_rule_result': {'base_score': assessment.base_score,
+                       'critical_signals_present': assessment.critical_signals_present,
+                       'matched_rules': [{'rule_id': finding.rule_id, 'points': finding.points, 'critical': finding.critical,
+                                          'representative_evidence_id': finding.evidence_refs[0]} for finding in assessment.findings]},
+                   'context_preflight': preview,
+                   'environment_to_record': {'cape_version': None, 'processor_version': None, 'guest_os': None},
+                   'required_analyst_fields': ['expected_base_score', 'expected_critical', 'reference_notes'],
+                   'notice': 'Observed rule output is not independent ground truth. Fill expectations and reference notes before running. Source files are exact copies, not anonymized; no model was contacted.'}
+    files = {**sources, 'preparation.json': encode(preparation), 'suite.json': encode(suite)}
+    if context is not None:
+        snapshot = encode(context)
+        files['model-context.json'] = snapshot
+        preview['snapshot'] = {'path': 'model-context.json', 'file_sha256': digest(snapshot)}
+        files['preparation.json'] = encode(preparation)
+    if len(files['preparation.json']) > MAX_ARTIFACT_BYTES:
+        raise EvaluationError('Preparation artifact exceeds its byte limit')
+    destination = Path(output_dir)
+    # Exclusive creation preserves existing files/directories, including symlinks.
+    # A failed/interrupted write may leave an incomplete draft; never auto-overwrite it.
+    destination.mkdir(mode=0o700, parents=False, exist_ok=False)
+    (destination / 'sources').mkdir(mode=0o700)
+    for relative, raw in files.items():
+        with (destination / relative).open('xb') as target:
+            target.write(raw)
+    return preparation
+
+
+def check_suite(suite_path):
+    """Validate annotated source contracts and production context without a model."""
+    suite, suite_hash, prepared = load_suite(suite_path)
+    cases = []
+    for case, report, catalog, assessment, historical in prepared:
+        preview, _ = _context_preview(report, catalog, historical)
+        cases.append({'case_id': case['case_id'], 'report_sha256': report.source_sha256,
+                      'historical_report_sha256': historical.report.source_sha256 if historical else None,
+                      'base_score': assessment.base_score, 'critical': assessment.critical_signals_present,
+                      'synthetic': report.synthetic, 'ruleset_synthetic': catalog.synthetic,
+                      'current_evidence_count': len(report.evidence),
+                      'current_coverage_warning_count': len(report.warnings), 'current_coverage_warnings': report.warnings[:32],
+                      'historical_evidence_count': len(historical.report.evidence) if historical else 0,
+                      'historical_coverage_warning_count': len(historical.report.warnings) if historical else 0,
+                      'historical_coverage_warnings': historical.report.warnings[:32] if historical else [],
+                      'context_preflight': preview})
+    return {'schema_version': 'artemis-eval-preflight/1', 'suite_sha256': suite_hash,
+            'implementation_sha256': implementation_fingerprints(),
+            'ready': all(case['context_preflight']['ready'] for case in cases), 'model_called': False,
+            'cases': cases, 'notice': 'Source and context contracts only; no model or factual-support validation.'}
+
+
 def load_suite(path):
     path = Path(path).resolve()
     raw = _read(path, 64 * 1024)
@@ -97,10 +212,12 @@ def load_suite(path):
         fields = 'case_id report report_sha256 ruleset ruleset_sha256 synthetic expected_base_score expected_critical reference_notes'
         _fields(case, fields + (' historical' if suite['schema_version'] == 'artemis-eval-suite/2' else ''))
         case_id = case['case_id']
-        if (not isinstance(case_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', case_id)
-                or case_id in seen):
+        _case_identifier(case_id)
+        if case_id in seen:
             raise EvaluationError('Case IDs must be distinct bounded identifiers')
         seen.add(case_id)
+        if case['expected_base_score'] is None or case['expected_critical'] is None or case['reference_notes'] == '':
+            raise EvaluationError('Draft suite: fill analyst expected_base_score, expected_critical and reference_notes before running')
         _text(case['reference_notes'])
         if (type(case['synthetic']) is not bool or type(case['expected_critical']) is not bool or
                 type(case['expected_base_score']) is not int or not 0 <= case['expected_base_score'] <= 10):
@@ -198,8 +315,7 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
     destination = Path(output_dir)
     # Refuse existing destinations, including symlinks. Never overwrite originals.
     destination.mkdir(parents=False, exist_ok=False)
-    implementation = {name: digest(Path(__file__).with_name(name + '.py').read_bytes())
-                      for name in ('evaluation', 'semantic', 'cape', 'ruleset', 'scoring', 'proposals', 'historical', 'case_store')}
+    implementation = implementation_fingerprints()
     attributed = suite['schema_version'] == 'artemis-eval-suite/2'
     run = {'schema_version': 'artemis-eval-run/2' if attributed else 'artemis-eval-run/1', 'suite_name': suite['name'], 'suite_sha256': suite_hash,
            'mode': 'synthetic_replay' if outputs is not None else 'local_model',
@@ -319,6 +435,16 @@ def summarize_ratings(run_path, ratings_path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
+    prepare = sub.add_parser('prepare', help='Copy local sources into a draft; analyst expectations remain blank')
+    prepare.add_argument('--report', required=True)
+    prepare.add_argument('--ruleset', required=True)
+    prepare.add_argument('--historical-report')
+    prepare.add_argument('--case-id', required=True)
+    prepare.add_argument('--name', default='Local CAPE evaluation draft')
+    prepare.add_argument('--synthetic', action='store_true', help='Explicitly label both reports synthetic; default is non-synthetic')
+    prepare.add_argument('--output-dir', required=True, help='New directory; sources are copied without anonymization')
+    check = sub.add_parser('check', help='Check annotated suite sources and context without contacting a model')
+    check.add_argument('--suite', required=True)
     start = sub.add_parser('run')
     start.add_argument('--suite', required=True)
     choice = start.add_mutually_exclusive_group(required=True)
@@ -336,6 +462,11 @@ def main(argv=None):
     try:
         if args.command == 'review':
             result = summarize_ratings(args.run, args.ratings)
+        elif args.command == 'prepare':
+            result = prepare_suite(args.report, args.ruleset, args.output_dir, case_id=args.case_id, name=args.name,
+                                   historical_path=args.historical_report, synthetic=args.synthetic)
+        elif args.command == 'check':
+            result = check_suite(args.suite)
         else:
             if bool(args.ollama_model) != bool(args.model_digest):
                 raise EvaluationError('--model-digest is required only with --ollama-model')
@@ -343,7 +474,8 @@ def main(argv=None):
                                            port=args.ollama_port, timeout=args.model_timeout) if args.ollama_model else None
             result = run_suite(args.suite, args.output_dir, provider=provider, replay_path=args.replay, repeat=args.repeat)
         print(encode(result['summary'] if args.command == 'run' else result).decode(), end='')
-        return 1 if args.command == 'run' and result['summary']['failed'] else 0
+        return 1 if ((args.command == 'run' and result['summary']['failed']) or
+                     (args.command == 'check' and not result['ready'])) else 0
     except (ValueError, OSError, KeyError, TypeError, RecursionError) as exc:
         parser.exit(2, f'Evaluation failed: {exc}\n')
 
