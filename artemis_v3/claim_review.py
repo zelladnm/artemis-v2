@@ -46,6 +46,12 @@ def _verify_receipt(secret, generation, receipt):
         raise ReviewError('Explanation receipt is invalid or expired; reopen a saved review or generate again')
 
 
+def verify_generation(secret, generation, receipt, report, catalog):
+    """Validate an HTTP snapshot without a model call or a database write."""
+    _verify_receipt(secret, generation, receipt)
+    check_generation_inputs(generation, report, catalog)
+
+
 def _binding(report_sha256, ruleset_sha256, synthetic):
     return _digest({'report_sha256': report_sha256, 'ruleset_sha256': ruleset_sha256, 'synthetic': synthetic})
 
@@ -73,7 +79,7 @@ def check_saved_inputs(record, report, catalog):
         raise ReviewError('Saved evidence or rule score differs from the current implementation; preserve the saved snapshot and generate again')
 
 
-def _claims(explanation):
+def explanation_claims(explanation):
     items = []
     for section in SECTIONS[:2]:
         for index, claim in enumerate(explanation[section]):
@@ -92,23 +98,23 @@ def review_template(generation):
     return {'generation_sha256': hashlib.sha256(_generation_bytes(generation)).hexdigest(),
             'reviewer': '', 'expected_previous_id': None,
             'items': [{'claim_id': item['claim_id'], 'rating': 'unreviewed', 'reason': ''}
-                      for item in _claims(generation['explanation'])]}
+                      for item in explanation_claims(generation['explanation'])]}
 
 
-def _review_items(generation, request):
+def _review_items(generation, request, *, draft=False):
     fields = {'generation_sha256', 'reviewer', 'expected_previous_id', 'items'}
     if not isinstance(request, dict) or set(request) != fields:
         raise ReviewError('Claim review fields do not match the documented schema')
     if request['generation_sha256'] != review_template(generation)['generation_sha256']:
         raise ReviewError('Claim review belongs to a different generation')
     reviewer = request['reviewer']
-    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 100:
+    if not isinstance(reviewer, str) or (not draft and not reviewer.strip()) or len(reviewer) > 100:
         raise ReviewError('Claim reviewer must contain 1-100 characters')
     if request['expected_previous_id'] is not None:
         _review_id(request['expected_previous_id'])
-    claims = _claims(generation['explanation'])
+    claims = explanation_claims(generation['explanation'])
     ratings = request['items']
-    if not claims or not isinstance(ratings, list) or len(ratings) != len(claims):
+    if (not claims and not draft) or not isinstance(ratings, list) or len(ratings) != len(claims):
         raise ReviewError('Review must include every claim from this generation exactly once')
     items = []
     for claim, rating in zip(claims, ratings):
@@ -117,10 +123,17 @@ def _review_items(generation, request):
             raise ReviewError('Missing, reordered or modified claim ratings')
         reason = rating['reason']
         if (not isinstance(reason, str) or len(reason) > 1000 or
-                (rating['rating'] != 'unreviewed' and not reason.strip())):
+                (not draft and rating['rating'] != 'unreviewed' and not reason.strip())):
             raise ReviewError('Each rated claim needs a reason within 1000 characters')
         items.append({**claim, 'rating': rating['rating'], 'reason': reason.strip()})
     return items
+
+
+def prepare_review_draft(generation, request):
+    """Export incomplete form edits distinctly from persisted human judgments."""
+    items = _review_items(generation, request, draft=True)
+    return {'status': 'unsaved', 'generation_sha256': request['generation_sha256'],
+            'reviewer': request['reviewer'], 'expected_previous_id': request['expected_previous_id'], 'items': items}
 
 
 def summarize(items):

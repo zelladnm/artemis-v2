@@ -186,7 +186,7 @@ def record_review(database, report, catalog, request, *, proposal_packet=None):
             connection.close()  # rolls back uncommitted work, including failed schema creation
 
 
-def list_reviews(database, *, proposal_sha256=None, limit=100):
+def list_reviews(database, *, proposal_sha256=None, review_id=None, limit=100):
     """Read newest records first without creating/modifying a database."""
     if type(limit) is not int or not 1 <= limit <= 1000:
         raise ReviewError('Review history limit must be between 1 and 1000')
@@ -194,11 +194,16 @@ def list_reviews(database, *, proposal_sha256=None, limit=100):
     try:
         connection = sqlite3.connect(Path(database).resolve().as_uri() + '?mode=ro', uri=True, timeout=5)
         _schema(connection, create=False)
-        query = 'SELECT * FROM reviews'
+        query = 'SELECT * FROM reviews WHERE 1=1'
         params = []
         if proposal_sha256 is not None:
-            query += ' WHERE proposal_sha256=?'
+            query += ' AND proposal_sha256=?'
             params.append(proposal_sha256)
+        if review_id is not None:
+            if not isinstance(review_id, str) or not 1 <= len(review_id) <= 100:
+                raise ReviewError('Invalid review ID')
+            query += ' AND review_id=?'
+            params.append(review_id)
         query += ' ORDER BY rowid DESC LIMIT ?'
         params.append(limit)
         return [_decode_row(row) for row in connection.execute(query, params)]
