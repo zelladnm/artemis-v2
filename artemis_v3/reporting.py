@@ -35,7 +35,7 @@ dl{display:grid;grid-template-columns:175px minmax(0,1fr);gap:7px 20px}dt{color:
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f6;padding:14px;border-radius:5px;font:12px/1.7 ui-monospace,monospace}
 ul{padding-left:22px}.refs a{display:inline-block;margin:2px 12px 2px 0}footer{margin-top:35px;color:#617680;font-size:12px}
 @media(max-width:650px){main{margin:0;padding:24px 18px;border:0;border-radius:0}dl{grid-template-columns:1fr;gap:3px}dd{margin-bottom:8px}h1{font-size:25px}.claim{padding:3px 13px 12px}}
-@page{size:A4;margin:18mm}@media print{body{background:white;font-size:10pt}main{margin:0;padding:0;border:0;max-width:none}h1{font-size:22pt}h2,h3{break-after:avoid}pre{font-size:8pt}a{color:inherit;text-decoration:none}.claim{break-inside:avoid}}
+@page{size:A4;margin:18mm}@media print{body{background:white;font-size:10pt}main{margin:0;padding:0;border:0;max-width:none}h1{font-size:22pt}h2,h3{break-after:avoid}pre{font-size:8pt}a{color:inherit;text-decoration:none}.claim,.evidence-excerpt{break-inside:avoid}}
 '''
 
 
@@ -111,6 +111,14 @@ class _Writer:
     def end_claim(self):
         if self.format == 'html':
             self.parts.append('</article>')
+
+    def begin_evidence(self):
+        if self.format == 'html':
+            self.parts.append('<section class="evidence-excerpt">')
+
+    def end_evidence(self):
+        if self.format == 'html':
+            self.parts.append('</section>')
 
     def finish(self):
         body = '\n'.join(self.parts)
@@ -374,9 +382,11 @@ def render_report(snapshot, format, *, generated_at=None):
     w.note('摘录优先保留模型与人工决定的引用，然后是每条规则的代表记录和时间线概览。来源字段仍是报告陈述。')
     for ref in included:
         scope, item = available[ref]
+        w.begin_evidence()
         w.heading(3, index[ref].upper(), index[ref])
         w.facts([('来源', SCOPES[scope]), ('证据 ID', ref), ('原始 JSON 位置', item['source_pointer']), ('类型', item['category'])])
         w.code(item)
+        w.end_evidence()
     counts = Counter(item['category'] for item in report['evidence'])
     w.heading(3, '当前来源记录类型计数')
     w.facts(sorted(counts.items()))
