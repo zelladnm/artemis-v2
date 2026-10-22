@@ -36,6 +36,7 @@ function setBusy(value) {
   for (const id of ['demo', 'report-file', 'rules-file', 'proposal-file', 'synthetic']) $(id).disabled = value;
   $('analyze').disabled = value || !inputs.report;
   $('submit-review').disabled = value || !reviewEnabled || !result?.rule_assessment;
+  for (const id of ['export-json', 'export-md', 'export-html']) $(id).disabled = value || !result;
   $('analyze').textContent = value ? '处理中…' : '开始调查';
   updateModelControls();
   updateClaimControls();
@@ -265,11 +266,20 @@ function exportSnapshot() {
   return { ...result, ...(claimDirty ? { claim_review_draft: { status: 'unsaved', ...claimDraft } } : {}) };
 }
 $('export-json').addEventListener('click', () => { if (result) download(JSON.stringify(exportSnapshot(), null, 2), 'artemis-investigation.json', 'application/json'); });
-$('export-md').addEventListener('click', () => {
-  if (!result) return;
-  const escaped = JSON.stringify(exportSnapshot(), null, 2).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('`', '&#96;');
-  download('# Artemis v3 调查报告\n\n' + (result.report.synthetic || result.ruleset_synthetic ? '**合成演示数据**\n\n' : '') + '规则分数不是恶意性概率；最终结论由分析师复核。\n\n<pre>' + escaped + '</pre>\n', 'artemis-investigation.md', 'text/markdown');
-});
+async function exportReadable(format) {
+  if (!result || busy) return;
+  setBusy(true); message();
+  try {
+    const response = await api('/api/export', { ...inputs, export_request: { format,
+      generation: result.semantic_review ? { explanation: result.semantic_review, suggestion_file_b64: result.suggestion_file_b64 || null } : null,
+      receipt: claimReceipt, claim_review_id: result.claim_review?.review_id || null,
+      claim_draft: claimDirty ? claimDraft : null, score_review_id: result.analyst_review?.review_id || null } });
+    download(response.content, response.filename, response.mime_type);
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+}
+$('export-md').addEventListener('click', () => exportReadable('markdown'));
+$('export-html').addEventListener('click', () => exportReadable('html'));
 
 function clearClaims() {
   claimDraft = null; claimReceipt = null; claimDirty = false;

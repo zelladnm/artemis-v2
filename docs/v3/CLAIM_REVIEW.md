@@ -21,9 +21,11 @@ python -m artemis_v3.workbench --review-db /path/to/reviews.sqlite --case-db /pa
    **不确定**, or leave **未核验**. Every rated item requires a reason (1–1000 characters).
 3. Enter a locally declared reviewer (1–100 characters) and click **保存逐条核验**.
    Partial review is allowed: untouched items remain unreviewed and lower coverage.
-4. JSON and escaped Markdown exports include the saved snapshot and judgments.
-   Unsaved edits, when present, are separately labeled `claim_review_draft.status =
-   "unsaved"`; they are not a persisted revision. Export before discarding a draft.
+4. JSON retains the saved snapshot and judgments; [structured Markdown and offline
+   HTML](REPORTS.md) present them with evidence links and saved coverage counts.
+   Unsaved edits are separately labeled `claim_review_draft.status = "unsaved"`
+   in JSON and shown in their own readable-report section; they are not a persisted
+   revision and do not increase saved coverage. Export before discarding a draft.
 5. After reopening the same report/rules, expand **当前来源的核验历史** and refresh.
    **载入此核验** restores the saved explanation, proposal bytes and judgments without
    calling a model. It works with `--review-db` even when no model or archive is

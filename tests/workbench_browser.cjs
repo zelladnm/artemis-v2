@@ -3,8 +3,56 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright');
+
+async function readableDownload(page, id, destination) {
+  const pending = page.waitForEvent('download');
+  await page.locator(id).click();
+  const download = await pending;
+  await download.saveAs(destination);
+  return fs.readFileSync(destination, 'utf8');
+}
+
+async function inspectStandaloneReport(browser, filename, artifacts, semantic) {
+  const reportPage = await browser.newPage({ viewport: { width: 1280, height: 960 } });
+  const reportUrl = pathToFileURL(filename).href, unexpected = [], errors = [];
+  reportPage.on('pageerror', error => errors.push(error.message));
+  await reportPage.route('**/*', route => {
+    if (route.request().url() === reportUrl) return route.continue();
+    unexpected.push(route.request().url()); return route.abort();
+  });
+  try {
+    await reportPage.goto(reportUrl);
+    assert.equal(await reportPage.locator('h1').textContent(), 'Artemis v3 调查报告');
+    assert.equal(await reportPage.locator('script,img,iframe,form,object,embed').count(), 0);
+    assert.equal(await reportPage.evaluate(() => window.__artemis_xss || window.__claim_xss || window.__report_xss), undefined);
+    assert.ok(await reportPage.locator('a').evaluateAll(links => links.length && links.every(link =>
+      link.getAttribute('href').startsWith('#') && document.getElementById(link.getAttribute('href').slice(1)))));
+    assert.match(await reportPage.locator('body').textContent(), /最终恶意性结论：尚未记录/);
+    assert.match(await reportPage.locator('body').textContent(), semantic ? /拒绝建议/ : /暂缓决定/);
+    await reportPage.locator('a[href="#e001"]').first().click();
+    assert.equal(new URL(reportPage.url()).hash, '#e001');
+    await reportPage.evaluate(() => window.scrollTo(0, 0));
+    await reportPage.screenshot({ path: path.join(artifacts, 'report-desktop.png') });
+    if (semantic) {
+      assert.equal(await reportPage.locator('article.claim').count(), 4);
+      assert.match(await reportPage.locator('article.claim').nth(1).textContent(), /历史来源/);
+      assert.match(await reportPage.locator('article.claim').nth(1).textContent(), /证据不支持/);
+      assert.match(await reportPage.locator('article.claim').nth(2).textContent(), /跨来源/);
+      assert.match(await reportPage.locator('body').textContent(), /<img src=x/);
+      await reportPage.locator('article.claim').nth(1).screenshot({ path: path.join(artifacts, 'report-historical-claim.png') });
+    }
+    await reportPage.setViewportSize({ width: 390, height: 844 });
+    await reportPage.evaluate(() => window.scrollTo(0, 0));
+    assert.ok(await reportPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Standalone report must fit a mobile screen');
+    await reportPage.screenshot({ path: path.join(artifacts, 'report-mobile.png') });
+    await reportPage.emulateMedia({ media: 'print' });
+    await reportPage.pdf({ path: path.join(artifacts, 'investigation-report.pdf'), preferCSSPageSize: true, printBackground: true });
+    assert.deepEqual(unexpected, []); assert.deepEqual(errors, []);
+  } finally { await reportPage.close(); }
+}
 
 (async () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'artemis-ui-'));
@@ -68,6 +116,14 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
     assert.equal(exported.rule_assessment.base_score, 1);
     assert.equal(exported.analyst_review.decision, 'defer');
     assert.equal(exported.analyst_review.analyst_score, null);
+    const basicReport = path.join(artifacts, 'basic-investigation-report.html');
+    const basicHtml = await readableDownload(page, '#export-html', basicReport);
+    assert.match(basicHtml, /本报告未附模型解释/);
+    assert.ok(basicHtml.includes(exported.report.source_sha256));
+    const basicMd = await readableDownload(page, '#export-md', path.join(artifacts, 'basic-investigation-report.md'));
+    assert.match(basicMd, /## 规则结果与评分复核/);
+    assert.doesNotMatch(basicMd, /<pre>/);
+    if (!semantic) await inspectStandaloneReport(browser, basicReport, artifacts, false);
 
     // Import hostile text and confirm it stays text in the real browser DOM.
     const report = JSON.parse(fs.readFileSync('tests/fixtures/cape_synthetic.json', 'utf8'));
@@ -153,6 +209,9 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       assert.equal(draftExport.claim_review_draft.status, 'unsaved');
       assert.equal(draftExport.claim_review, undefined);
       assert.equal(draftExport.claim_receipt, undefined);
+      const draftHtml = await readableDownload(page, '#export-html', path.join(artifacts, 'draft-investigation-report.html'));
+      assert.match(draftHtml, /未保存的核验草稿/);
+      assert.match(draftHtml, /已保存核验覆盖<\/dt><dd>0 \/ 4/);
       await page.locator('#claim-save').click();
       await page.waitForFunction(() => document.getElementById('claim-status').textContent.includes('已保存 · 版本 1'));
       await page.waitForFunction(() => document.querySelectorAll('#claim-history-list .history-record').length === 1);
@@ -197,6 +256,17 @@ const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright'
       assert.equal(modelExport.claim_review_draft, undefined);
       assert.equal(modelExport.claim_receipt, undefined);
       fs.writeFileSync(path.join(artifacts, 'claim-review-export.json'), JSON.stringify(modelExport, null, 2));
+      const reportFilename = path.join(artifacts, 'investigation-report.html');
+      const reportHtml = await readableDownload(page, '#export-html', reportFilename);
+      assert.ok(reportHtml.includes(modelExport.claim_review.review_id));
+      assert.ok(reportHtml.includes(modelExport.analyst_review.review_id));
+      assert.match(reportHtml, /已保存核验覆盖<\/dt><dd>3 \/ 4/);
+      assert.doesNotMatch(reportHtml, /未保存的核验草稿/);
+      assert.doesNotMatch(reportHtml, /claim_receipt/);
+      const reportMarkdown = await readableDownload(page, '#export-md', path.join(artifacts, 'investigation-report.md'));
+      assert.match(reportMarkdown, /## 模型解释与逐条核验/);
+      assert.ok(reportMarkdown.includes(modelExport.semantic_review.context_sha256));
+      await inspectStandaloneReport(browser, reportFilename, artifacts, true);
       await page.locator('[data-tab="semantic"]').click();
       await page.locator('#clear-historical').click();
       assert.doesNotMatch(await page.locator('#semantic-content').textContent(), /已选择历史对照/);

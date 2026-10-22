@@ -41,7 +41,7 @@ selected for [historical evidence context](HISTORICAL.md) before generation.
 3. Inspect deterministic rule findings and coverage warnings, reported parent-child
    process links, separate clock-domain timelines, and raw evidence JSON pointers.
    Each list is capped for rendering (200 records, 100 overview warnings); filtering
-   searches the full normalized evidence. Exports contain all normalized records.
+   searches the full normalized evidence. JSON exports contain all normalized records.
 4. Select 1–32 evidence references and enter an adjustment rationale. Alternatively,
    import a suggestion, whose delta/rationale/citations are then locked in the UI.
 5. Enter a declared reviewer, approve/reject/defer decision and reason. The service
@@ -50,8 +50,10 @@ selected for [historical evidence context](HISTORICAL.md) before generation.
 6. In the model explanation tab, [review each claim against its evidence](CLAIM_REVIEW.md).
    Save supported/unsupported/uncertain judgments and reasons, leaving untouched claims
    unreviewed. This does not approve any score adjustment.
-7. Export JSON or escaped Markdown, including the current review records, if any.
-   Read local history to inspect previous decisions and their full snapshots.
+7. Export full JSON or a [structured Markdown / offline HTML report](REPORTS.md),
+   including selected saved decisions and separately labeled unsaved claim drafts.
+   HTML can be printed or saved as PDF in a browser. Read local history to inspect
+   previous decisions and their full snapshots.
 
 The previous review ID protects revisions of the same proposal. A first decision
 leaves it blank; saving fills it for the next revision. Editing delta, rationale or
@@ -103,7 +105,7 @@ python -m unittest discover -s tests -p 'test_v3*.py' -v
 
 Real-browser smoke tests run in CI with pinned Playwright tooling installed only
 on the runner. The test covers desktop/mobile views, process links, timeline,
-evidence selection, persisted reviews, JSON export and hostile text remaining
+evidence selection, persisted reviews, readable/JSON export and hostile text remaining
 inert. Screenshots are uploaded as the `workbench-browser-screenshots` artifact.
 A second flow uses a test-only Ollama HTTP fixture to check explanation, explicit
 proposal intake, rejection and export without changing the rule score.
@@ -120,3 +122,5 @@ unverified.
 Claim review additionally covers partial judgments, exact generation binding, stale
 revision rejection, separate score decisions, page reload/reopening and safe export
 of saved records versus unsaved drafts. See CLAIM_REVIEW.md for schema-2 migration.
+Readable report checks open the downloaded standalone HTML, follow evidence links,
+check mobile overflow and capture a print PDF without loading external resources.
