@@ -165,7 +165,7 @@ function render() {
   if (!report.warnings.length) overview.append(el('p', '已支持字段无解析告警；这不证明沙箱捕获了完整行为。', 'muted'));
   for (const warning of report.warnings.slice(0, 100)) overview.append(el('div', warning, 'warning'));
   if (report.warnings.length > 100) overview.append(el('p', '完整覆盖告警见导出报告。', 'muted'));
-  renderProcesses(); renderTimeline();
+  renderProcesses(); renderTimeline(); renderBehaviorSummary();
   $('category').replaceChildren(new Option('全部类型', ''));
   for (const category of [...new Set(evidence.map(x => x.category))].sort()) $('category').append(new Option(category, category));
   $('search').value = ''; renderEvidence(); renderReview(); renderSemantic();
@@ -205,6 +205,45 @@ function renderTimeline() {
       row.append(el('code', event.normalized_time || event.time_status), evidenceLink(byId.get(event.evidence_ref))); target.append(row);
     }
   }
+}
+function renderBehaviorSummary() {
+  const target = $('behavior-summary');
+  target.replaceChildren(el('h2', '报告中的行为汇总'),
+    el('p', '汇总由沙箱加工生成，可能重叠或缺少调用结果。条目本身不证明执行成功、持久化或恶意性；进程与时间须另行核验。', 'muted'));
+  const labels = { files: '文件总表', read_files: '读取文件', write_files: '写入文件', delete_files: '删除文件',
+    keys: '注册表总表', read_keys: '读取注册表', write_keys: '写入注册表', delete_keys: '删除注册表',
+    executed_commands: '命令行', resolved_apis: '解析的 API', mutexes: '互斥体',
+    created_services: '创建服务', started_services: '启动服务' };
+  const groups = [['file_summary', '文件', ['files', 'read_files', 'write_files', 'delete_files']],
+    ['registry_summary', '注册表', ['keys', 'read_keys', 'write_keys', 'delete_keys']],
+    ['service_summary', '服务', ['created_services', 'started_services']],
+    ['command_summary', '命令行', ['executed_commands']], ['mutex_summary', '互斥体', ['mutexes']],
+    ['resolved_api_summary', '解析的 API', ['resolved_apis']]];
+  const grid = el('div', undefined, 'two-column summary-grid');
+  for (const [category, title, fields] of groups) {
+    const card = el('section', undefined, 'panel summary-group'); card.dataset.summaryCategory = category;
+    card.append(el('h2', title));
+    for (const field of fields) {
+      const coverage = result.report.behavior_summary?.[field];
+      const state = !coverage ? '未提供覆盖记录' : coverage.state === 'absent' ? '字段缺失 · 覆盖未知' :
+        coverage.state === 'empty' ? '明确为空 · 未列出记录' : '有记录 · ' + coverage.record_count + ' 条';
+      card.append(el('p', labels[field] + '：' + state, 'muted summary-coverage'));
+    }
+    const rows = result.report.evidence.filter(item => item.category === category && fields.includes(item.data.reported_operation));
+    for (const item of rows.slice(0, 20)) {
+      const link = evidenceLink(item); link.classList.add('summary-evidence');
+      const value = item.data.path ?? item.data.value;
+      link.textContent = labels[item.data.reported_operation] + ' · ' + value.slice(0, 160) + (value.length > 160 ? '…' : '');
+      card.append(link);
+    }
+    if (rows.length) {
+      const browse = el('button', '查看全部 ' + rows.length + ' 条来源记录', 'secondary'); browse.type = 'button';
+      browse.addEventListener('click', () => { $('search').value = ''; $('category').value = category; renderEvidence(); showTab('evidence'); });
+      card.append(browse, el('p', '本页最多展示 20 条；相同值保留各自出处。', 'muted'));
+    }
+    grid.append(card);
+  }
+  target.append(grid);
 }
 function renderEvidence() {
   if (!result) return;

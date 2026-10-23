@@ -82,6 +82,7 @@ source_observations 只概括来源陈述；hypotheses 必须注明推测并给�
 历史证据须明确标为历史来源，不得称为当前报告的行为。同一样本哈希仅为报告声明，历史环境和覆盖可能不同。
 历史记录不构成当前结论或评分。adjustment 只能引用当前 evidence；不得只靠历史叙述消除当前风险。
 API 调用不等于执行成功，父子进程不证明注入，first_seen 不证明创建时间。不要混合未知时区。
+文件、注册表、命令、服务、互斥体和解析 API 汇总可能重叠；汇总名称不是成功证据，也不提供进程归属、时间或持久化结论。按字段来源核验，不能将条目数当作独立行为次数。
 没有发现不代表安全，不得输出最终安全判定、恶意概率或置信度数字。披露覆盖不足。
 有规则评分时，可在证据充分时提出 adjustment，否则为 null。无评分时必须为 null。
 不得因安装路径、readme 或合理故事忽略关键行为；关键风险的负向调整仍会被系统阻止。
@@ -251,7 +252,7 @@ def explain(report, provider: ExplanationProvider, *, catalog=None, evidence_ids
               'model': provider.model, 'model_digest': generated.get('model_digest'),
               'model_metadata_sha256': generated.get('model_metadata_sha256'),
               'model_response_sha256': generated.get('response_sha256'),
-              'context_sha256': _hash(_encode(context)), 'prompt_version': 'artemis-semantic/3',
+              'context_sha256': _hash(_encode(context)), 'prompt_version': 'artemis-semantic/4',
               'evidence_selection': 'analyst' if evidence_ids is not None else 'automatic',
               'supplied_evidence_ids': [item['evidence_id'] for item in context['evidence']],
               'omitted_evidence_count': len(report.evidence) - len(current_allowed),

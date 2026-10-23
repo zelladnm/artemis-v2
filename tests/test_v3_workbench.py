@@ -84,7 +84,7 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(result['model_status'], 'not_configured')
         self.assertEqual(result['rule_assessment']['base_score'], 1)
-        self.assertEqual(result['report']['schema_version'], 'cape-evidence/2')
+        self.assertEqual(result['report']['schema_version'], 'cape-evidence/3')
         self.assertEqual(len(result['report']['timeline']['report_clock']), 2)
         self.assertFalse(self.database.exists())
 

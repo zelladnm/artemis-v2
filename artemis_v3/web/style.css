@@ -113,6 +113,9 @@ nav button{white-space:nowrap;font-size:12px}
 
 
 #process{overflow:auto}
+#behavior-summary .summary-evidence{display:block;max-width:100%;margin:7px 0;text-align:left;overflow-wrap:anywhere;background:#eef5f5;color:#126a77;border:1px solid #cddade}
+.summary-group{min-width:0}
+.summary-coverage{overflow-wrap:anywhere}
 
 #semantic-content .panel button{display:block;font-size:11px;margin-top:6px;background:#eef5f5;color:#126a77;border:1px solid #cddade;max-width:100%;overflow-wrap:anywhere}
 .actions{flex-wrap:wrap;max-width:100%}

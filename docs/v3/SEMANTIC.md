@@ -64,8 +64,15 @@ Proposals reuse `artemis-proposal/1` validation against the exact report and rul
 Critical negative adjustments remain blocked. Base score, proposed adjustment
 and the separately approved analyst score retain their existing meanings.
 Explanations record model identity/artifact digest, metadata/response/context
-hashes and prompt version `artemis-semantic/3`. These aid traceability, not
+hashes and prompt version `artemis-semantic/4`. These aid traceability, not
 authentication or guaranteed reproducibility.
+
+Prompt /4 treats file/registry/service/command/mutex/resolved-API summaries as
+possibly overlapping source assertions. Summary names do not establish success,
+process ownership, time or persistence; analysts must check the underlying events.
+New summary evidence follows the same explicit selection, context budgets,
+citation and critical-score gates. The parser contract is cape-evidence/3;
+explanation/1 and explanation/2 remain unchanged.
 
 ## Transport and failure behavior
 

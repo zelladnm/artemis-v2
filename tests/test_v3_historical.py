@@ -44,7 +44,7 @@ class HistoricalTests(unittest.TestCase):
     def test_history_observations_are_bound_to_sent_source_and_total_budget(self):
         result, raw = explain(self.report, self.provider, catalog=self.catalog, historical=self.historical)
         self.assertEqual(result['schema_version'], 'artemis-explanation/2')
-        self.assertEqual(result['prompt_version'], 'artemis-semantic/3')
+        self.assertEqual(result['prompt_version'], 'artemis-semantic/4')
         self.assertIsNone(raw)
         history = result['historical_context']; context = self.provider.context
         self.assertEqual(history['case_id'], self.metadata['case_id'])

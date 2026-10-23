@@ -23,6 +23,11 @@ invalid inputs return 2. Parsing success never means a sample is benign.
 | `process_id`, `parent_id` | Unambiguous reported-parent links; never injection claims |
 | `behavior.processes[].file_activities.{read_files,write_files,delete_files}[]` | File paths with explicit process evidence references |
 | `behavior.summary.{files,read_files,write_files,delete_files}[]` | Unattributed file activity; no fabricated process or timestamp |
+| `behavior.summary.{keys,read_keys,write_keys,delete_keys}[]` | Registry summary strings with original field/index references |
+| `behavior.summary.{created_services,started_services}[]` | Service summary strings; membership does not establish successful creation/start |
+| `behavior.summary.executed_commands[]` | Literal command-line summary strings; never executed by Artemis |
+| `behavior.summary.mutexes[]` | Mutex summary strings; no inferred owning process or malware family |
+| `behavior.summary.resolved_apis[]` | Source-reported resolved API strings; no inferred API execution |
 | `dropped[]` | Source-reported dropped-file metadata |
 | `network.{dns,http,tcp,udp}[]` | Source-reported network records; no fabricated PID correlation |
 | `signatures[]` | Source assertions preserved, not independent detections or scores |
@@ -104,3 +109,53 @@ individual timestamps or expanded execution count.
 The new fixture contains failed calls, reused PIDs, mixed clocks and unknown times.
 It is synthetic and does not establish real-version compatibility or detection
 accuracy. No API execution, external lookup or scoring is introduced.
+
+## Behavior summary coverage (schema cape-evidence/3)
+
+The current adapter extends /2 with `registry_summary`, `service_summary`,
+`command_summary`, `mutex_summary` and `resolved_api_summary`. Each record has
+`reported_operation` (the original field) and `value` (the exact source string).
+Existing file summaries retain `path` and their evidence IDs. Consumers must
+accept /3, the new categories and `behavior_summary`; database formats do not change.
+
+For each of the 13 supported summary fields, `behavior_summary` records
+`source_pointer`, `record_count` and a state:
+
+| State | Meaning |
+|---|---|
+| `absent` | Field absent; coverage unknown. Count 0 does not establish no activity. |
+| `empty` | An explicitly empty list; no entry listed by that processor. |
+| `reported` | Strings listed; count describes records, not unique or successful actions. |
+
+Malformed supported fields, including null containers and non-string values,
+fail atomically. Previously ignored malformed new fields now fail under /3.
+Unknown fields remain outside the contract. Missing newly supported fields appear
+in this coverage map instead of adding redundant warnings to older reports.
+Existing warnings and partial/parsed status retain their previous meanings.
+
+Values, duplicates, case and Unicode are preserved. Identical strings at separate
+indices/lists retain separate provenance. No PID association, timeline event,
+automatic ATT&CK mapping, persistence conclusion or score change is inferred.
+The synthetic fixture lists a service alongside a failed CreateServiceW call;
+these remain independent source assertions, with the call's false status intact.
+
+The workbench's 行为汇总 view groups six evidence families and links to exact
+records. Each group shows at most 20 entries with a category-filtered browser for
+the rest; the existing browser displays at most 200 matches. Full normalized
+records remain in JSON. HTML/Markdown include compact coverage groups and source
+excerpts under existing appendix limits. Explicitly select summaries needed in
+model context; record/byte budgets and omission disclosures still apply.
+
+Contract audit on 2026-10-23 used CAPEv2 commit
+`b14817d0689a5183abbc7666e51d222ef03b039e`:
+
+- [behavior.py](https://github.com/kevoreilly/CAPEv2/blob/b14817d0689a5183abbc7666e51d222ef03b039e/modules/processing/behavior.py): Summary.run() emits the supported lists; service-summary membership does not guarantee call success.
+- [jsondump.py](https://github.com/kevoreilly/CAPEv2/blob/b14817d0689a5183abbc7666e51d222ef03b039e/modules/reporting/jsondump.py): serializes processed results to report.json.
+
+No upstream implementation was copied, imported or executed. All new committed
+reports are synthetic, shaped from this field contract. This audit does not
+establish compatibility with real deployed reports or real model quality.
+Archives retain exact bytes and reopen with the current parser. Saved explanations
+can reopen when their cited evidence and rule score still match; new unrelated
+summary records do not invalidate those citations. Old evaluation runs still need
+their matching implementation, as documented in EVALUATION_REVIEW.md.

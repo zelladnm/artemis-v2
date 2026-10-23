@@ -4,6 +4,11 @@ The optional [evaluation review mode](EVALUATION_REVIEW.md) opens exact recorded
 outputs beside their sources without a model and exports saved judgments as
 run-bound ratings. Normal investigation mode remains available.
 
+The **行为汇总** view groups file, registry, service, command, mutex and resolved-API
+summary records, distinguishes missing/empty/reported fields and links to exact
+evidence. Summary strings are source assertions, not verified successful actions.
+See [the current CAPE contract](CAPE.md).
+
 Start an offline workbench from the repository root (Python 3.11+, no third-party
 runtime dependencies):
 

@@ -1,0 +1,79 @@
+{
+  "info": {
+    "id": 42,
+    "description": "Synthetic summary contract fixture; no sample execution"
+  },
+  "target": {
+    "file": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "behavior": {
+    "processes": [
+      {
+        "process_id": 310,
+        "parent_id": 0,
+        "process_name": "synthetic-setup.exe",
+        "first_seen": "2026-01-01 10:00:00",
+        "calls": [
+          {
+            "api": "CreateServiceW",
+            "timestamp": "2026-01-01 10:00:01",
+            "status": false,
+            "return": "0x00000000",
+            "arguments": [
+              {
+                "name": "ServiceName",
+                "value": "SyntheticSetupService"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "files": [
+        "C:\\Demo\\readme.txt"
+      ],
+      "read_files": [],
+      "write_files": [
+        "C:\\Demo\\readme.txt"
+      ],
+      "delete_files": [],
+      "keys": [
+        "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\SyntheticSetup"
+      ],
+      "write_keys": [
+        "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\SyntheticSetup",
+        "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\SyntheticSetup"
+      ],
+      "delete_keys": [],
+      "executed_commands": [
+        "cmd.exe /c echo <img src=x onerror=\"window.__summary_xss=1\">"
+      ],
+      "resolved_apis": [],
+      "mutexes": [
+        "Global\\SyntheticSetupMutex",
+        "Global\\SyntheticSetupMutex"
+      ],
+      "created_services": [
+        "SyntheticSetupService"
+      ],
+      "started_services": []
+    }
+  },
+  "dropped": [],
+  "signatures": [
+    {
+      "name": "synthetic_behavior",
+      "description": "Synthetic source assertion, not a detection",
+      "severity": 1
+    }
+  ],
+  "network": {
+    "dns": [],
+    "http": [],
+    "tcp": [],
+    "udp": []
+  }
+}

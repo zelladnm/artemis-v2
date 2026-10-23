@@ -23,8 +23,9 @@
 <div id="case" hidden>
 <div class="case-top"><div><span id="synthetic-badge" class="badge amber" hidden>合成演示数据</span><span id="case-status"></span><code id="fingerprint"></code><code id="sample-fingerprint"></code></div><div class="actions"><button id="archive-save" class="secondary" disabled>归档来源</button><button id="explain" disabled>本地模型解释</button><button id="export-json" class="secondary">导出 JSON</button><button id="export-md" class="secondary">导出 Markdown</button><button id="export-html" class="secondary" title="离线阅读；使用浏览器打印或另存为 PDF">导出 HTML</button></div></div>
 <section id="metrics" class="metrics"></section>
-<nav id="tabs" aria-label="调查视图"><button data-tab="overview" class="selected">调查概览</button><button data-tab="process">进程树</button><button data-tab="timeline">行为时间线</button><button data-tab="evidence">证据浏览</button><button data-tab="semantic">模型解释</button><button data-tab="review">人工复核</button></nav>
+<nav id="tabs" aria-label="调查视图"><button data-tab="overview" class="selected">调查概览</button><button data-tab="process">进程树</button><button data-tab="timeline">行为时间线</button><button data-tab="behavior-summary">行为汇总</button><button data-tab="evidence">证据浏览</button><button data-tab="semantic">模型解释</button><button data-tab="review">人工复核</button></nav>
 <section id="overview" class="view"></section><section id="process" class="view" hidden></section><section id="timeline" class="view" hidden></section>
+<section id="behavior-summary" class="view" hidden></section>
 <section id="evidence" class="view" hidden><div class="toolbar"><input id="search" placeholder="检索 API、域名、路径或 JSON 位置" aria-label="检索证据"><select id="category" aria-label="证据类型"><option value="">全部类型</option></select></div><p id="evidence-count" class="muted"></p><div id="evidence-list"></div></section>
 <section id="semantic" class="view" hidden>
 <form id="claim-form"><div id="semantic-content"></div><div id="claim-controls" hidden>

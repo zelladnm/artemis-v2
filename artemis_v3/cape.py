@@ -19,6 +19,18 @@ MAX_NODES = 200_000
 MAX_DEPTH = 64
 MAX_RECORDS = 20_000
 
+# Processed Summary.run() fields, pinned contract documented in CAPE.md.
+# Field names describe upstream aggregation; they do not establish API success.
+SUMMARY_FIELDS = {
+    'files': ('file_summary', 'path'), 'read_files': ('file_summary', 'path'),
+    'write_files': ('file_summary', 'path'), 'delete_files': ('file_summary', 'path'),
+    'keys': ('registry_summary', 'value'), 'read_keys': ('registry_summary', 'value'),
+    'write_keys': ('registry_summary', 'value'), 'delete_keys': ('registry_summary', 'value'),
+    'executed_commands': ('command_summary', 'value'), 'resolved_apis': ('resolved_api_summary', 'value'),
+    'mutexes': ('mutex_summary', 'value'), 'created_services': ('service_summary', 'value'),
+    'started_services': ('service_summary', 'value'),
+}
+
 
 class CapeReportError(ValueError):
     """Invalid or unsupported report, with a safe diagnostic."""
@@ -40,7 +52,8 @@ class CapeReport:
     evidence: list[BehaviorEvidence] = field(default_factory=list)
     process_links: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    schema_version: str = 'cape-evidence/2'
+    schema_version: str = 'cape-evidence/3'
+    behavior_summary: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         result = asdict(self)
@@ -48,6 +61,8 @@ class CapeReport:
         result['verdict'] = 'not_assessed'
         result['timeline'] = build_timeline(self.evidence)
         result['scope'] = 'Selected CAPE JSON fields only; retain the original report.'
+        result['summary_notice'] = ('Summary lists are source assertions, not unique actions or verified success. '
+                                    'They do not provide process attribution, timestamps or persistence verdicts.')
         return result
 
     def as_markdown(self) -> str:
@@ -214,14 +229,19 @@ def parse_cape_report(raw: bytes, *, synthetic: bool = False) -> CapeReport:
                                      'relation': 'reported_parent', 'source_pointer': eid.split('#', 1)[1] + '/parent_id'})
 
     summary = obj(behavior.get('summary', {}), '/behavior/summary')
-    for key in ('files', 'read_files', 'write_files', 'delete_files'):
+    for key, (category, value_field) in SUMMARY_FIELDS.items():
+        field_pointer = '/behavior/summary/' + key
         if key not in summary:
+            result.behavior_summary[key] = {'state': 'absent', 'record_count': 0, 'source_pointer': field_pointer}
             continue
-        for i, value in enumerate(array(summary, key, f'/behavior/summary/{key}')):
-            pointer = f'/behavior/summary/{key}/{i}'
+        values = array(summary, key, field_pointer)
+        result.behavior_summary[key] = {'state': 'reported' if values else 'empty',
+                                        'record_count': len(values), 'source_pointer': field_pointer}
+        for i, value in enumerate(values):
+            pointer = f'{field_pointer}/{i}'
             if not isinstance(value, str):
-                raise CapeReportError(f'{pointer}: expected string path')
-            add('file_summary', pointer, {'reported_operation': key, 'path': value})
+                raise CapeReportError(f'{pointer}: expected string summary value')
+            add(category, pointer, {'reported_operation': key, value_field: value})
     if not any(k in summary for k in ('files', 'read_files', 'write_files', 'delete_files')):
         result.warnings.append('/behavior/summary: supported file activity fields absent')
     for key, category in (('dropped', 'dropped_file'), ('signatures', 'signature')):
