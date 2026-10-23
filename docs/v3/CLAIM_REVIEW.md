@@ -5,6 +5,11 @@ hypothesis and score-adjustment rationale. This closes the gap between checking
 that a reference exists and deciding whether it actually supports the model's text.
 The workbench never assigns these judgments automatically.
 
+Saved judgments can also be explicitly selected for fixed evaluation attempts
+and exported through [evaluation review mode](EVALUATION_REVIEW.md). Generation
+history queries can filter by the exact output fingerprint before the history
+limit, so older matching output reviews remain accessible.
+
 ## Use
 
 Start with an explicit local review store, optionally enabling the source archive

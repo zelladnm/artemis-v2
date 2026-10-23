@@ -13,6 +13,7 @@ import secrets
 from .cape import MAX_BYTES, parse_cape_report
 from .case_store import list_cases, open_case, save_case, source_identity
 from .claim_review import check_saved_inputs, issue_receipt, list_claim_reviews, record_claim_review, review_template
+from .evaluation_review import EvaluationReview
 from .historical import load_historical_source
 from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
@@ -75,7 +76,10 @@ class WorkbenchServer(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
 
-    def __init__(self, port=8765, *, review_db=None, semantic_provider=None, case_db=None):
+    def __init__(self, port=8765, *, review_db=None, semantic_provider=None, case_db=None, evaluation=None):
+        if evaluation is not None and (semantic_provider is not None or review_db is None):
+            raise ValueError('Evaluation review requires --review-db and no model provider')
+        self.evaluation = evaluation
         self.semantic_provider = semantic_provider
         self.token = secrets.token_urlsafe(32)
         self.claim_receipt_key = secrets.token_bytes(32)  # never exposed to the browser
@@ -140,7 +144,12 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             return self._send(200, {'model_enabled': self.server.semantic_provider is not None,
                                     'model': self.server.semantic_provider.model if self.server.semantic_provider else None,
                                     'review_enabled': self.server.review_db is not None,
-                                    'archive_enabled': self.server.case_db is not None})
+                                    'archive_enabled': self.server.case_db is not None,
+                                    'evaluation_enabled': self.server.evaluation is not None})
+        if self.path == '/api/evaluation':
+            if self.server.evaluation is None:
+                return self._send(409, {'error': 'Start with --evaluation-suite and --evaluation-run'})
+            return self._send(200, self.server.evaluation.inventory())
         if self.path == '/api/demo':
             return self._send(200, {'report': base64.b64encode((WEB / 'demo/report.json').read_bytes()).decode(),
                                     'ruleset': base64.b64encode((WEB / 'demo/ruleset.json').read_bytes()).decode(),
@@ -168,7 +177,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         if not self._allowed(api=True):
             return self._send(403, {'error': 'Local origin or request token rejected'})
         if self.path not in ('/api/analyze', '/api/review', '/api/explain', '/api/cases/save', '/api/cases/search', '/api/cases/open',
-                             '/api/claims/save', '/api/claims/list', '/api/claims/open', '/api/export'):
+                             '/api/claims/save', '/api/claims/list', '/api/claims/open', '/api/export',
+                             '/api/evaluation/open', '/api/evaluation/export'):
             return self._send(404, {'error': 'Not found'})
         lengths = self.headers.get_all('Content-Length', [])
         if (len(lengths) != 1 or len(lengths[0]) > 9 or not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -182,6 +192,22 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if len(raw) != size:
                 raise ValueError('Incomplete request body')
             payload = json.loads(raw, object_pairs_hook=_pairs)
+            if self.path.startswith('/api/evaluation/'):
+                if self.server.evaluation is None:
+                    return self._send(409, {'error': 'Evaluation review is not configured'})
+                if self.path == '/api/evaluation/export':
+                    return self._send(200, self.server.evaluation.export(payload, self.server.review_db))
+                opened = self.server.evaluation.open(payload)
+                result, _, _, _ = investigate_payload(opened['inputs'])
+                generation = opened.pop('generation')
+                if generation is not None:
+                    result.update(model_status='recorded_evaluation', semantic_review=generation['explanation'],
+                                  suggestion_file_b64=generation['suggestion_file_b64'],
+                                  claim_receipt=issue_receipt(self.server.claim_receipt_key, generation),
+                                  claim_template=review_template(generation))
+                else:
+                    result.update(model_status='failed', semantic_error=opened['attempt']['error'])
+                return self._send(200, {**opened, 'result': result})
             if self.path.startswith('/api/cases/'):
                 if not self.server.case_db:
                     return self._send(409, {'error': 'Start with --case-db to enable explicit local archival'})
@@ -224,7 +250,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                         payload.get('claim_receipt'), self.server.claim_receipt_key, payload.get('claim_request'))
                     return self._send(200, {'claim_review': record})
                 if self.path == '/api/claims/list':
-                    records = list_claim_reviews(self.server.review_db, report, catalog)
+                    records = list_claim_reviews(self.server.review_db, report, catalog,
+                        generation_sha256=payload.get('claim_generation_sha256'))
                     return self._send(200, {'reviews': [{key: record[key] for key in
                         ('review_id', 'generation_sha256', 'revision', 'reviewed_at', 'reviewer', 'summary')} for record in records],
                         'limit': 20})
@@ -279,13 +306,21 @@ def main(argv=None):
     parser.add_argument('--ollama-model', help='Explicit installed local Ollama model; never auto-pulled')
     parser.add_argument('--ollama-port', type=int, default=11434)
     parser.add_argument('--model-timeout', type=float, default=60)
+    parser.add_argument('--evaluation-suite', help='Explicit local suite for offline review of a completed evaluation')
+    parser.add_argument('--evaluation-run', help='Exact completed run; requires --evaluation-suite and --review-db, no model')
     args = parser.parse_args(argv)
     if not 0 <= args.port <= 65535:
         parser.error('Port must be between 0 and 65535')
     try:
+        if bool(args.evaluation_suite) != bool(args.evaluation_run):
+            raise ValueError('--evaluation-suite and --evaluation-run must be supplied together')
+        if args.evaluation_run and (not args.review_db or args.ollama_model):
+            raise ValueError('Evaluation review requires --review-db and no --ollama-model')
+        evaluation = EvaluationReview(args.evaluation_suite, args.evaluation_run) if args.evaluation_run else None
         provider = OllamaLocalProvider(args.ollama_model, port=args.ollama_port, timeout=args.model_timeout) if args.ollama_model else None
-        server = WorkbenchServer(args.port, review_db=args.review_db, semantic_provider=provider, case_db=args.case_db)
-    except ValueError as exc:
+        server = WorkbenchServer(args.port, review_db=args.review_db, semantic_provider=provider, case_db=args.case_db,
+                                 evaluation=evaluation)
+    except (ValueError, OSError) as exc:
         parser.error(str(exc))
     with server:
         print(f'Artemis v3 workbench: {server.origin}', flush=True)

@@ -84,6 +84,11 @@ jobs:
           ARTEMIS_UI_ARTIFACTS: ${{ runner.temp }}/artemis-ui-artifacts/semantic
           ARTEMIS_BROWSER_SEMANTIC: '1'
         run: node tests/workbench_browser.cjs
+      - name: Review fixed evaluation outputs without a model and export exact-run human ratings
+        env:
+          ARTEMIS_PLAYWRIGHT_PATH: ${{ runner.temp }}/artemis-ui/node_modules/playwright
+          ARTEMIS_UI_ARTIFACTS: ${{ runner.temp }}/artemis-ui-artifacts/evaluation
+        run: node tests/evaluation_browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

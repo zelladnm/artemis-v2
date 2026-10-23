@@ -134,6 +134,11 @@ nav button{white-space:nowrap;font-size:12px}
 #claim-controls{border-top:1px solid var(--line);padding-top:20px;margin:20px 0}
 #claim-controls input{display:block;width:100%;max-width:380px;margin:6px 0 14px}
 #claim-summary,#claim-status{font-size:12px;overflow-wrap:anywhere}
+#evaluation-info,#evaluation-reference,#evaluation-status{overflow-wrap:anywhere}
+#evaluation-panel .toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;margin-bottom:12px}
+#evaluation-panel .toolbar label{min-width:0}
+#evaluation-panel select{display:block;width:100%;margin-top:6px}
+@media(max-width:650px){#evaluation-panel .toolbar{grid-template-columns:1fr}}
 #claim-history-panel{margin-top:25px;border-top:1px solid var(--line);padding-top:16px}
 #claim-history-panel>summary{cursor:pointer;font-weight:600;color:var(--blue)}
 #claim-history-panel>p{font-size:12px}

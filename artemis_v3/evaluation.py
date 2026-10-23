@@ -298,6 +298,36 @@ def review_template(run, run_sha256):
             'reviewer': '', 'items': items}
 
 
+def summarize_attempts(run):
+    """Recompute technical counts from recorded attempts, keeping failures in the denominator."""
+    attempts = run['attempts']
+    accepted = sum(row['status'] == 'accepted' for row in attempts)
+    checks = [row['checks'] for row in attempts if row['checks'] is not None]
+    variation = {}
+    for case in run['cases']:
+        rows = [row['explanation'] for row in attempts if row['case_id'] == case['case_id'] and row['explanation']]
+        contents = [{key: row[key] for key in ('source_observations', 'hypotheses', 'limitations', 'proposal_review')} for row in rows]
+        variation[case['case_id']] = {'completed_outputs': len(rows),
+                                    'distinct_outputs': len({digest(encode(value)) for value in contents}),
+                                    'model_digests': sorted({row['model_digest'] for row in rows if row['model_digest']})}
+    summary = {'attempts': len(attempts), 'accepted': accepted, 'failed': len(attempts) - accepted,
+                      'contract_acceptance_fraction': _ratio(accepted, len(attempts)),
+                      'critical_negative_proposed': sum(c['critical_negative_proposed'] for c in checks),
+                      'critical_negative_blocked': sum(c['critical_negative_blocked'] for c in checks),
+                      'base_score_violations': sum(not c['base_score_preserved'] for c in checks),
+                      'human_factual_support': None, 'output_variation': variation}
+    if run['schema_version'] == 'artemis-eval-run/2':
+        historical_ids = {case['case_id'] for case in run['cases'] if case.get('historical') is not None}
+        summary['by_context'] = {}
+        for label, historical_mode in (('current_only', False), ('with_history', True)):
+            rows = [row for row in attempts if (row['case_id'] in historical_ids) == historical_mode]
+            passed = sum(row['status'] == 'accepted' for row in rows)
+            summary['by_context'][label] = {'attempts': len(rows), 'accepted': passed,
+                                                  'failed': len(rows) - passed,
+                                                  'contract_acceptance_fraction': _ratio(passed, len(rows))}
+    return summary
+
+
 def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat=1):
     if type(repeat) is not int or not 1 <= repeat <= 5:
         raise EvaluationError('Repeat must be between 1 and 5')
@@ -350,31 +380,7 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
             # A partial run survives interruption; final review template is written only on completion.
             temporary = destination / 'run.json.tmp'
             temporary.write_bytes(encode(run)); temporary.replace(destination / 'run.json')
-    attempts = run['attempts']
-    accepted = sum(row['status'] == 'accepted' for row in attempts)
-    checks = [row['checks'] for row in attempts if row['checks'] is not None]
-    variation = {}
-    for case, *_ in prepared:
-        rows = [row['explanation'] for row in attempts if row['case_id'] == case['case_id'] and row['explanation']]
-        contents = [{key: row[key] for key in ('source_observations', 'hypotheses', 'limitations', 'proposal_review')} for row in rows]
-        variation[case['case_id']] = {'completed_outputs': len(rows),
-                                    'distinct_outputs': len({digest(encode(value)) for value in contents}),
-                                    'model_digests': sorted({row['model_digest'] for row in rows if row['model_digest']})}
-    run['summary'] = {'attempts': len(attempts), 'accepted': accepted, 'failed': len(attempts) - accepted,
-                      'contract_acceptance_fraction': _ratio(accepted, len(attempts)),
-                      'critical_negative_proposed': sum(c['critical_negative_proposed'] for c in checks),
-                      'critical_negative_blocked': sum(c['critical_negative_blocked'] for c in checks),
-                      'base_score_violations': sum(not c['base_score_preserved'] for c in checks),
-                      'human_factual_support': None, 'output_variation': variation}
-    if attributed:
-        historical_ids = {case['case_id'] for case, _, _, _, historical in prepared if historical is not None}
-        run['summary']['by_context'] = {}
-        for label, historical_mode in (('current_only', False), ('with_history', True)):
-            rows = [row for row in attempts if (row['case_id'] in historical_ids) == historical_mode]
-            passed = sum(row['status'] == 'accepted' for row in rows)
-            run['summary']['by_context'][label] = {'attempts': len(rows), 'accepted': passed,
-                                                  'failed': len(rows) - passed,
-                                                  'contract_acceptance_fraction': _ratio(passed, len(rows))}
+    run['summary'] = summarize_attempts(run)
     raw = encode(run)
     (destination / 'run.json.tmp').write_bytes(raw)
     (destination / 'run.json.tmp').replace(destination / 'run.json')
@@ -384,12 +390,17 @@ def run_suite(suite_path, output_dir, *, provider=None, replay_path=None, repeat
 
 def summarize_ratings(run_path, ratings_path):
     raw = _read(Path(run_path), MAX_ARTIFACT_BYTES)
+    ratings_raw = _read(Path(ratings_path), MAX_ARTIFACT_BYTES)
+    return summarize_rating_bytes(raw, ratings_raw)
+
+
+def summarize_rating_bytes(raw, ratings_raw):
+    """Shared exact-run rating validation for CLI files and workbench exports."""
     run = _json(raw)
     if (not isinstance(run, dict) or run.get('schema_version') not in ('artemis-eval-run/1', 'artemis-eval-run/2')
             or 'summary' not in run):
         raise EvaluationError('Expected a completed evaluation run')
     expected = review_template(run, digest(raw))
-    ratings_raw = _read(Path(ratings_path), MAX_ARTIFACT_BYTES)
     ratings = _json(ratings_raw)
     _fields(ratings, 'schema_version run_sha256 reviewer items')
     if (ratings['schema_version'] != expected['schema_version'] or ratings['run_sha256'] != expected['run_sha256'] or

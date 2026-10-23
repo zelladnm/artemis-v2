@@ -1,5 +1,9 @@
 # Local investigation workbench
 
+The optional [evaluation review mode](EVALUATION_REVIEW.md) opens exact recorded
+outputs beside their sources without a model and exports saved judgments as
+run-bound ratings. Normal investigation mode remains available.
+
 Start an offline workbench from the repository root (Python 3.11+, no third-party
 runtime dependencies):
 
