@@ -43,6 +43,19 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  storage-windows:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify recovery, WAL snapshots, file handles and exclusive publication on Windows
+        run: python -m unittest discover -s tests -p test_v3_storage.py -v
+
   workbench-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 8

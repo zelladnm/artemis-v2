@@ -68,8 +68,9 @@ The archive has its own application/schema markers and refuses unrelated or
 unsupported SQLite stores. A write transaction protects duplicate saves and
 budget checks across concurrent writers. The initial limits are 1,000 records and
 128 MiB of original report/ruleset payloads. This is a payload budget, not a strict
-database/journal filesystem quota. Back up the local database with the server
-stopped or a SQLite-aware backup process before modifying its storage externally.
+database/journal filesystem quota. Use the [backup and recovery CLI](STORAGE.md)
+to create verified snapshots at new paths. Stop writers when backing up the
+archive and review store as a matching pair, then rehearse reopening both copies.
 
 Metadata checksums and indexed identities are checked on listing. Reopening also
 validates source sizes, reparses the original bytes and verifies stable source

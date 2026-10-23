@@ -16,6 +16,7 @@ from .claim_review import check_saved_inputs, issue_receipt, list_claim_reviews,
 from .historical import load_historical_source
 from .proposals import MAX_PROPOSAL_BYTES, parse_proposal
 from .review import list_reviews, record_review
+from .reporting import prepare_export, render_report
 from .ruleset import MAX_RULESET_BYTES, parse_ruleset
 from .scoring import assess_signatures
 from .semantic import OllamaLocalProvider, SemanticError, explain
@@ -167,7 +168,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         if not self._allowed(api=True):
             return self._send(403, {'error': 'Local origin or request token rejected'})
         if self.path not in ('/api/analyze', '/api/review', '/api/explain', '/api/cases/save', '/api/cases/search', '/api/cases/open',
-                             '/api/claims/save', '/api/claims/list', '/api/claims/open'):
+                             '/api/claims/save', '/api/claims/list', '/api/claims/open', '/api/export'):
             return self._send(404, {'error': 'Not found'})
         lengths = self.headers.get_all('Content-Length', [])
         if (len(lengths) != 1 or len(lengths[0]) > 9 or not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -207,6 +208,14 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                     synthetic=payload.get('synthetic', False), title=payload.get('archive_title', '')))
             if self.server.semantic_provider is not None:
                 result['model_status'] = 'configured'
+            if self.path == '/api/export':
+                request = payload.get('export_request')
+                snapshot = prepare_export(result, report, catalog, packet, request,
+                    review_db=self.server.review_db, receipt_key=self.server.claim_receipt_key)
+                format = request['format']
+                return self._send(200, {'filename': 'artemis-investigation.' + ('html' if format == 'html' else 'md'),
+                    'mime_type': 'text/html' if format == 'html' else 'text/markdown',
+                    'content': render_report(snapshot, format)})
             if self.path.startswith('/api/claims/'):
                 if not self.server.review_db:
                     return self._send(409, {'error': 'Claim review requires startup --review-db'})

@@ -69,6 +69,11 @@ The API does not delete or update historical records. Store copies of the origin
 report and ruleset separately; the database keeps review snapshots and citations,
 not the full original files.
 
+The [storage recovery CLI](STORAGE.md) verifies every score/claim record and its
+revision chain, creates standalone snapshots, and restores to new paths. It keeps
+schema-1 stores unchanged. Back up the source archive and review history together
+with writers stopped, then verify that the restored workbench can reopen them.
+
 ## Current boundaries
 
 Reviewer names are self-declared local identifiers. Login, role enforcement,
