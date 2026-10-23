@@ -7,6 +7,9 @@ review/history, source archive and explicit historical context described below.
 The integrated acceptance branch also incorporates the previously separate VT
 response fix. See [the current acceptance checklist](ACCEPTANCE.md) for reproducible
 commands, completed engineering scope and remaining real-data/model validation.
+The [offline evaluation review mode](EVALUATION_REVIEW.md) lets analysts open fixed
+outputs, inspect their evidence, save judgments and export exact-run human ratings
+without editing each JSON claim or invoking a model again.
 Draft branches have not been merged into main or released.
 The [local suite preparation commands](PREPARATION.md) copy selected reports into
 a fingerprinted draft and preflight its production context without a model;

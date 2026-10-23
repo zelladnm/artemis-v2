@@ -173,6 +173,11 @@ or safety approval.
 
 ## Human review
 
+To review fixed outputs beside their current/historical evidence and export these
+exact-run ratings without editing JSON, use the optional
+[offline evaluation workbench](EVALUATION_REVIEW.md). Saved revisions are explicitly
+selected per attempt; unselected claims remain unreviewed and scores stay separate.
+
 Retain an untouched copy of the generated template. Fill `reviewer` with a declared
 reviewer identity. For each observation, hypothesis and adjustment rationale in
 `items`, edit only `rating` and `reason`:

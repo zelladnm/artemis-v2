@@ -221,12 +221,14 @@ def record_claim_review(database, report, catalog, generation, receipt, secret, 
             connection.close()
 
 
-def list_claim_reviews(database, report, catalog, *, review_id=None, limit=20):
+def list_claim_reviews(database, report, catalog, *, review_id=None, generation_sha256=None, limit=20):
     """Read only records bound to these exact current inputs, newest first."""
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ReviewError('Claim history limit must be between 1 and 100')
     if review_id is not None:
         _review_id(review_id)
+    if generation_sha256 is not None and (not isinstance(generation_sha256, str) or not re.fullmatch('[a-f0-9]{64}', generation_sha256)):
+        raise ReviewError('Invalid claim generation fingerprint')
     if not Path(database).exists():
         return []
     connection = None
@@ -239,6 +241,9 @@ def list_claim_reviews(database, report, catalog, *, review_id=None, limit=20):
         if review_id is not None:
             query += ' AND review_id=?'
             params.append(review_id)
+        if generation_sha256 is not None:
+            query += ' AND generation_sha256=?'
+            params.append(generation_sha256)
         query += ' ORDER BY rowid DESC LIMIT ?'
         return [_decode_row(row) for row in connection.execute(query, [*params, limit])]
     except sqlite3.Error as exc:

@@ -7,6 +7,8 @@ const versions = {};
 let modelConfig = { model_enabled: false };
 let historicalSelection = null, archivedChoices = new Map();
 let claimDraft = null, claimReceipt = null, claimDirty = false;
+let evaluationRun = null, activeEvaluation = null;
+const evaluationBindings = new Map();
 const ratingLabels = { unreviewed: '未核验', supported: '有证据支持', unsupported: '证据不支持', uncertain: '不确定' };
 function historyEligible(item) {
   return Boolean(item && result && modelConfig.model_enabled && result.source_identity?.sample_sha256 &&
@@ -23,7 +25,19 @@ function updateModelControls() {
   if ($('clear-historical')) $('clear-historical').disabled = busy;
   $('archive-note').textContent = modelConfig.archive_enabled ? '归档已启用。点击“归档来源”后写入本地存储。' : '启动时配置 --case-db 后可保存和重新打开报告。';
 }
-api('/api/config').then(config => { modelConfig = config; updateModelControls(); }).catch(() => {});
+api('/api/config').then(async config => {
+  modelConfig = config; updateModelControls();
+  if (config.evaluation_enabled) {
+    evaluationRun = await api('/api/evaluation');
+    $('evaluation-panel').hidden = false;
+    $('evaluation-info').textContent = evaluationRun.suite_name + ' · ' +
+      (evaluationRun.mode === 'synthetic_replay' ? '合成回放' : '已记录的本地模型运行') + ' · ' + evaluationRun.run_sha256;
+    for (const [index, attempt] of evaluationRun.attempts.entries()) {
+      $('evaluation-attempt').append(new Option(attempt.case_id + ' · 第 ' + attempt.iteration + ' 次 · ' + attempt.status, String(index)));
+    }
+    updateEvaluationControls();
+  }
+}).catch(error => message(error.message));
 function el(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -40,6 +54,7 @@ function setBusy(value) {
   $('analyze').textContent = value ? '处理中…' : '开始调查';
   updateModelControls();
   updateClaimControls();
+  updateEvaluationControls();
 }
 async function api(path, data) {
   const response = await fetch(path, {
@@ -52,6 +67,8 @@ async function api(path, data) {
   return value;
 }
 function clearCase() {
+  activeEvaluation = null;
+  $('evaluation-reference').textContent = '';
   result = null; selected.clear(); $('case').hidden = true; $('empty').hidden = false;
   clearClaims();
   $('review-result').textContent = ''; message();
@@ -85,6 +102,8 @@ for (const [id, name, limit] of [['report-file', 'report', 10 * 1024 ** 2], ['ru
 }
 $('synthetic').addEventListener('change', () => { inputs.synthetic = $('synthetic').checked; clearHistoricalSelection(); clearCase(); });
 async function analyze() {
+  activeEvaluation = null;
+  $('evaluation-reference').textContent = '';
   message(); setBusy(true);
   try { const response = await api('/api/analyze', inputs); clearClaims(); result = response; selected.clear(); render(); showTab('overview'); }
   catch (error) { clearCase(); message(error.message); }
@@ -299,8 +318,14 @@ function applyClaimRecord(record) {
   claimDraft = { generation_sha256: record.generation_sha256, reviewer: record.reviewer, expected_previous_id: record.review_id,
     items: record.items.map(({ claim_id, rating, reason }) => ({ claim_id, rating, reason })) };
   $('claim-reviewer').value = record.reviewer; claimDirty = false;
+  if (activeEvaluation && record.generation_sha256 === activeEvaluation.generation_sha256) {
+    evaluationBindings.set(activeEvaluation.key, { case_id: activeEvaluation.case_id,
+      iteration: activeEvaluation.iteration, review_id: record.review_id });
+    updateEvaluationControls();
+  }
 }
 function updateClaimControls() {
+  $('claim-save').textContent = activeEvaluation ? '保存并选用于本轮评测' : '保存逐条核验';
   $('claim-controls').hidden = !claimDraft;
   $('claim-history').disabled = busy || !result || !reviewEnabled;
   for (const button of $('claim-history-list').querySelectorAll('button')) button.disabled = busy;
@@ -348,14 +373,15 @@ $('claim-form').addEventListener('submit', async event => {
   finally { setBusy(false); }
 });
 async function claimHistory() {
-  const response = await api('/api/claims/list', inputs);
+  const response = await api('/api/claims/list', { ...inputs,
+    ...(activeEvaluation ? { claim_generation_sha256: activeEvaluation.generation_sha256 } : {}) });
   const target = $('claim-history-list'); target.replaceChildren();
   $('claim-history-status').textContent = '匹配 ' + response.reviews.length + ' 条核验记录（最多 ' + response.limit + ' 条）。';
   for (const record of response.reviews) {
     const card = el('div', undefined, 'history-record');
     card.append(el('strong', record.reviewer + ' · 版本 ' + record.revision), el('code', record.reviewed_at),
       el('p', '已核验 ' + record.summary.reviewed + ' / ' + record.summary.total + ' 条'), el('code', record.review_id));
-    const open = el('button', '载入此核验', 'secondary'); open.type = 'button'; open.disabled = busy;
+    const open = el('button', activeEvaluation ? '载入并选用于本轮评测' : '载入此核验', 'secondary'); open.type = 'button'; open.disabled = busy;
     open.addEventListener('click', async () => {
       if (busy) return;
       setBusy(true); message();
@@ -476,6 +502,8 @@ function renderArchives(response) {
       setBusy(true); message();
       try {
         const opened = await api('/api/cases/open', { case_id: item.case_id });
+        activeEvaluation = null;
+        $('evaluation-reference').textContent = '';
         clearClaims(); inputs = opened.inputs; result = { ...opened.result, archived_case: opened.archived_case }; selected.clear();
         historicalSelection = null;
         for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
@@ -521,5 +549,55 @@ $('archive-search-form').addEventListener('submit', async event => {
   setBusy(true); message();
   try { renderArchives(await api('/api/cases/search', { kind: $('archive-kind').value, sha256: $('archive-sha').value.trim() })); }
   catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+
+function updateEvaluationControls() {
+  for (const id of ['evaluation-attempt', 'evaluation-open', 'evaluation-export', 'evaluation-reviewer']) $(id).disabled = busy || !evaluationRun;
+  $('evaluation-clear').disabled = busy || !activeEvaluation || !evaluationBindings.has(activeEvaluation.key);
+  if (evaluationRun) $('evaluation-status').textContent = '已为 ' + evaluationBindings.size + ' / ' +
+    evaluationRun.attempts.length + ' 次尝试选择已保存修订。仅这些修订进入核验包；失败尝试保留在原运行记录。';
+}
+$('evaluation-open').addEventListener('click', async () => {
+  if (busy || !evaluationRun) return;
+  if (claimDirty && !window.confirm('有未保存的核验草稿。放弃草稿并打开所选评测输出？')) return;
+  const attempt = evaluationRun.attempts[Number($('evaluation-attempt').value)];
+  setBusy(true); message();
+  try {
+    const opened = await api('/api/evaluation/open', { case_id: attempt.case_id, iteration: attempt.iteration });
+    activeEvaluation = null; clearClaims(); historicalSelection = null;
+    inputs = opened.inputs; result = opened.result; selected.clear();
+    acceptGeneration(opened.result);
+    if (claimDraft) activeEvaluation = { case_id: attempt.case_id, iteration: attempt.iteration,
+      key: attempt.case_id + ':' + attempt.iteration, generation_sha256: claimDraft.generation_sha256 };
+    $('synthetic').checked = inputs.synthetic;
+    for (const id of ['report-file', 'rules-file', 'proposal-file']) $(id).value = '';
+    $('input-status').textContent = '固定评测输出：' + attempt.case_id + ' · 第 ' + attempt.iteration + ' 次；未重新生成';
+    $('evaluation-reference').textContent = '人工参考说明：' + opened.reference_notes;
+    render(); showTab('semantic');
+    if (activeEvaluation) {
+      const chosen = evaluationBindings.get(activeEvaluation.key);
+      if (chosen) {
+        const restored = await api('/api/claims/open', { ...inputs, claim_review_id: chosen.review_id });
+        acceptGeneration(restored); renderSemantic();
+      }
+      await claimHistory();
+    }
+  } catch (error) { message(error.message); }
+  finally { setBusy(false); }
+});
+$('evaluation-clear').addEventListener('click', () => {
+  if (!busy && activeEvaluation) { evaluationBindings.delete(activeEvaluation.key); updateEvaluationControls(); }
+});
+$('evaluation-export').addEventListener('click', async () => {
+  if (busy || !evaluationRun) return;
+  setBusy(true); message();
+  try {
+    const response = await api('/api/evaluation/export', { run_sha256: evaluationRun.run_sha256,
+      reviewer: $('evaluation-reviewer').value, selections: [...evaluationBindings.values()] });
+    const bytes = Uint8Array.from(atob(response.content_b64), value => value.charCodeAt(0));
+    download(bytes, response.filename, response.mime_type);
+    message('评测核验包已导出，包含 ratings.json、summary.json 和具体修订关联记录。');
+  } catch (error) { message(error.message); }
   finally { setBusy(false); }
 });
