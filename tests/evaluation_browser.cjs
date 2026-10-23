@@ -94,6 +94,7 @@ async function stop(child) {
     await page.reload(); await page.locator('#evaluation-panel').waitFor({ state: 'visible' });
     assert.match(await page.locator('#evaluation-status').textContent(), /0 \/ 5/);
     await page.locator('#evaluation-attempt').selectOption('2'); await page.locator('#evaluation-open').click();
+    await page.locator('#claim-history-panel > summary').click();
     await page.locator('#claim-history-list button').first().waitFor({ state: 'visible' });
     await page.locator('#claim-history-list button').first().click();
     await page.waitForFunction(() => document.getElementById('claim-status').textContent.includes('已保存 · 版本 1'));
