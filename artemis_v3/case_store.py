@@ -175,6 +175,16 @@ def list_cases(database, *, kind=None, sha256=None, limit=50):
             connection.close()
 
 
+def _check_sources(value, raw, rules):
+    """Shared by reopening and offline recovery verification; never changes data."""
+    prepared = _prepare(raw, rules, value['synthetic'], value['title'])
+    # Parser coverage/counts can evolve; exact source identities must remain stable.
+    identity_fields = ('case_id', 'report_sha256', 'ruleset_sha256', 'synthetic', 'ruleset_synthetic',
+                       'sample_sha256', 'sample_hash_pointer', 'sample_identity_kind', 'ruleset_version')
+    if any(prepared[key] != value.get(key) for key in identity_fields):
+        raise CaseStoreError('Archived source integrity check failed')
+
+
 def open_case(database, case_id):
     case_id = _sha(case_id)
     connection = None
@@ -187,12 +197,7 @@ def open_case(database, case_id):
             raise CaseStoreError('Archived case was not found')
         value = _metadata(row)
         raw, rules = connection.execute('SELECT report, ruleset FROM cases WHERE case_id=?', (case_id,)).fetchone()
-        prepared = _prepare(raw, rules, value['synthetic'], value['title'])
-        # Parser coverage/counts can evolve; exact source identities must remain stable.
-        identity_fields = ('case_id', 'report_sha256', 'ruleset_sha256', 'synthetic', 'ruleset_synthetic',
-                           'sample_sha256', 'sample_hash_pointer', 'sample_identity_kind', 'ruleset_version')
-        if any(prepared[key] != value.get(key) for key in identity_fields):
-            raise CaseStoreError('Archived source integrity check failed')
+        _check_sources(value, raw, rules)
         return value, raw, rules
     except sqlite3.Error as exc:
         raise CaseStoreError('Cannot open Artemis case archive') from exc

@@ -24,6 +24,10 @@ only saving a review writes it. Keep real investigation data outside the checkou
 Without this option, investigation and export work but review writes are refused.
 Use Ctrl+C to stop. Port 0 chooses a free loopback port and prints it.
 
+For persistent investigations, use the [backup and recovery workflow](STORAGE.md)
+and rehearse reopening copies before relying on them. Recovery selects new store
+paths at startup; browser requests cannot replace a database.
+
 Optional [source archival and exact SHA-256 lookup](ARCHIVE.md) is enabled with
 `--case-db /path/to/cases.sqlite`, using a database separate from review history.
 Click **归档来源** to persist report/ruleset bytes, then query and reopen records

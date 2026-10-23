@@ -4,8 +4,33 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { spawn } = require('node:child_process');
+const { spawn, execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const { chromium } = require(process.env.ARTEMIS_PLAYWRIGHT_PATH || 'playwright');
+
+function workbenchOrigin(child) {
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error('Workbench startup timed out')), 15000);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('exit', code => { clearTimeout(timer); reject(new Error(`Workbench exited during startup: ${code}`)); });
+    child.stdout.on('data', data => {
+      output += data;
+      const match = output.match(/http:\/\/127\.0\.0\.1:\d+/);
+      if (match) { clearTimeout(timer); resolve(match[0]); }
+    });
+    child.stderr.on('data', data => process.stderr.write(data));
+  });
+}
+
+async function stopWorkbench(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Workbench shutdown timed out')), 5000);
+    child.once('exit', () => { clearTimeout(timer); resolve(); });
+    child.kill('SIGTERM');
+  });
+}
 
 async function readableDownload(page, id, destination) {
   const pending = page.waitForEvent('download');
@@ -59,22 +84,13 @@ async function inspectStandaloneReport(browser, filename, artifacts, semantic) {
   const artifacts = process.env.ARTEMIS_UI_ARTIFACTS || path.join(temporary, 'screenshots');
   fs.mkdirSync(artifacts, { recursive: true });
   const semantic = process.env.ARTEMIS_BROWSER_SEMANTIC === '1';
+  const python = process.env.ARTEMIS_PYTHON || 'python';
+  const reviewDb = path.join(temporary, 'reviews.sqlite'), caseDb = path.join(temporary, 'cases.sqlite');
   const serverArgs = semantic ? ['tests/serve_semantic_workbench.py'] : ['-m', 'artemis_v3.workbench', '--port', '0'];
-  const child = spawn(process.env.ARTEMIS_PYTHON || 'python', [...serverArgs,
-    '--review-db', path.join(temporary, 'reviews.sqlite'), '--case-db', path.join(temporary, 'cases.sqlite')], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let child = spawn(python, [...serverArgs, '--review-db', reviewDb, '--case-db', caseDb], { stdio: ['ignore', 'pipe', 'pipe'] });
   let browser, page;
   try {
-    const origin = await new Promise((resolve, reject) => {
-      let output = '';
-      const timer = setTimeout(() => reject(new Error('Workbench startup timed out')), 15000);
-      child.on('error', reject);
-      child.stdout.on('data', data => {
-        output += data;
-        const match = output.match(/http:\/\/127\.0\.0\.1:\d+/);
-        if (match) { clearTimeout(timer); resolve(match[0]); }
-      });
-      child.stderr.on('data', data => process.stderr.write(data));
-    });
+    let origin = await workbenchOrigin(child);
     browser = await chromium.launch({ headless: true });
     page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.setDefaultTimeout(15000);
@@ -298,13 +314,82 @@ async function inspectStandaloneReport(browser, filename, artifacts, semantic) {
       await page.locator('#claim-save').click();
       await page.waitForFunction(() => document.getElementById('claim-status').textContent.includes('已保存 · 版本 2'));
       assert.match(await page.locator('#metrics').textContent(), /1 \/ 10/);
+
+      // Stop every writer, restore both stores at new paths, and resume in a
+      // fresh process with no model configured. Receipts cannot survive restart.
+      const beforeRecovery = JSON.parse(await readableDownload(page, '#export-json', path.join(artifacts, 'before-recovery.json')));
+      await stopWorkbench(child);
+      const fileHash = filename => createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+      const originalHashes = [caseDb, reviewDb].map(fileHash), recoveryChecks = [];
+      const storage = (action, kind, source, destination) => {
+        const args = ['-m', 'artemis_v3.storage', action, '--kind', kind, '--source', source, '--json'];
+        if (destination) args.push('--destination', destination);
+        const result = JSON.parse(execFileSync(python, args, { encoding: 'utf8', timeout: 45000 }));
+        recoveryChecks.push(result);
+        if (destination) assert.equal(result.snapshot_sha256, fileHash(destination));
+        return result;
+      };
+      const restoredPaths = {};
+      for (const [kind, source] of [['case', caseDb], ['review', reviewDb]]) {
+        const backup = path.join(temporary, `${kind}-backup.sqlite`);
+        restoredPaths[kind] = path.join(temporary, `${kind}-restored.sqlite`);
+        storage('backup', kind, source, backup);
+        storage('verify', kind, backup);
+        storage('restore', kind, backup, restoredPaths[kind]);
+      }
+      child = spawn(python, ['-m', 'artemis_v3.workbench', '--port', '0', '--case-db', restoredPaths.case,
+        '--review-db', restoredPaths.review], { stdio: ['ignore', 'pipe', 'pipe'] });
+      origin = await workbenchOrigin(child);
+      await page.goto(origin);
+      await page.waitForFunction(() => !document.getElementById('archive-recent').disabled);
+      await page.locator('#archive-panel summary').click();
+      await page.locator('#archive-recent').click();
+      await page.locator('#archive-list .archive-record').first().locator('button').first().click();
+      await page.waitForFunction(() => document.getElementById('input-status').textContent.includes('已从本地归档恢复'));
+      assert.equal(await page.locator('#explain').isEnabled(), false, 'Recovery must not require a model');
+      await page.locator('[data-tab="semantic"]').click();
+      await page.locator('#claim-history-panel summary').click();
+      await page.locator('#claim-history').click();
+      await page.locator('#claim-history-list button').first().click();
+      await page.waitForFunction(() => document.getElementById('claim-status').textContent.includes('已保存 · 版本 2'));
+      const reopened = JSON.parse(await readableDownload(page, '#export-json', path.join(artifacts, 'reopened-recovery.json')));
+      assert.deepEqual(reopened.claim_review, beforeRecovery.claim_review);
+      assert.deepEqual(reopened.semantic_review, beforeRecovery.semantic_review);
+      assert.deepEqual(reopened.rule_assessment, beforeRecovery.rule_assessment);
+      assert.equal(reopened.report.source_sha256, beforeRecovery.report.source_sha256);
+      assert.deepEqual(reopened.claim_review.items.map(item => item.source_scope), ['current', 'historical', 'mixed', 'current']);
+      await page.locator('.claim-reason').nth(1).fill('Synthetic revision after database recovery without a model');
+      await page.locator('#claim-save').click();
+      await page.waitForFunction(() => document.getElementById('claim-status').textContent.includes('已保存 · 版本 3'));
+      const resumed = JSON.parse(await readableDownload(page, '#export-json', path.join(artifacts, 'resumed-recovery.json')));
+      assert.equal(resumed.claim_review.previous_review_id, reopened.claim_review.review_id);
+      assert.equal(resumed.claim_review.generation_sha256, reopened.claim_review.generation_sha256);
+      assert.equal(resumed.claim_review.base_score, reopened.claim_review.base_score);
+      assert.equal(resumed.claim_review.score_decision, 'not_recorded_by_claim_review');
+      await page.screenshot({ path: path.join(artifacts, 'recovered-workbench-desktop.png'), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      await page.locator('#semantic-content .claim-card').nth(1).screenshot({ path: path.join(artifacts, 'recovered-claim-mobile.png') });
+      await page.locator('[data-tab="review"]').click();
+      await page.locator('#history').click();
+      await page.locator('#history-list .history-record').first().waitFor({ state: 'visible' });
+      assert.equal(await page.locator('#history-list .history-record').count(), 2);
+      assert.match(await page.locator('#history-list').textContent(), /UI synthetic analyst · reject/);
+      await stopWorkbench(child);
+      assert.deepEqual([caseDb, reviewDb].map(fileHash), originalHashes);
+      assert.deepEqual(storage('verify', 'case', restoredPaths.case).records, { cases: 2 });
+      assert.deepEqual(storage('verify', 'review', restoredPaths.review).records, { reviews: 2, claim_reviews: 3 });
+      fs.writeFileSync(path.join(artifacts, 'storage-recovery-check.json'), JSON.stringify({ synthetic: true,
+        model_configured_after_restore: false, originals_unchanged: true,
+        restored_generation_sha256: resumed.claim_review.generation_sha256, checks: recoveryChecks }, null, 2));
+      console.log('PASS: paired backup/restore, exact saved claims, historical citations and new revision without a model');
     }
     assert.deepEqual(errors, []);
     console.log('PASS: desktop/mobile demo, process links, timeline, citations, persisted review, export and hostile text');
   } finally {
     if (page && !page.isClosed()) await page.screenshot({ path: path.join(artifacts, 'workbench-final.png'), fullPage: true }).catch(() => {});
     if (browser) await browser.close();
-    child.kill('SIGTERM');
+    await stopWorkbench(child);
     fs.rmSync(temporary, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

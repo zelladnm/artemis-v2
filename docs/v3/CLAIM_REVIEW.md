@@ -73,6 +73,8 @@ A hypothesis marked supported remains a hypothesis with its original verificatio
   reads and startup do not migrate it. Existing score-review rows remain intact.
   Current code reads both versions. Older code that only supports version 1 cannot
   open the upgraded store; keep a backup before reverting application versions.
+  [STORAGE.md](STORAGE.md) documents verified snapshots and restoring both stores
+  at new paths, including reopening a saved generation without a model.
 - Generation snapshots are bounded to 128 KiB, persisted records to 256 KiB,
   observations/hypotheses to the existing 8+8 limit, and one adjustment rationale.
   History returns the newest 20 matching records. Browser requests cannot choose a
