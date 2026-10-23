@@ -384,6 +384,51 @@ async function inspectStandaloneReport(browser, filename, artifacts, semantic) {
         restored_generation_sha256: resumed.claim_review.generation_sha256, checks: recoveryChecks }, null, 2));
       console.log('PASS: paired backup/restore, exact saved claims, historical citations and new revision without a model');
     }
+    if (!semantic) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.locator('#report-file').setInputFiles('tests/fixtures/cape_summary_synthetic.json');
+      await page.waitForFunction(() => !document.getElementById('analyze').disabled);
+      await page.locator('#synthetic').check(); await page.locator('#analyze').click();
+      await page.locator('#case').waitFor({ state: 'visible' });
+      await page.locator('[data-tab="behavior-summary"]').click();
+      assert.equal(await page.locator('#behavior-summary .summary-group').count(), 6);
+      const registry = page.locator('[data-summary-category="registry_summary"]');
+      assert.match(await registry.textContent(), /读取注册表：字段缺失/);
+      assert.match(await registry.textContent(), /删除注册表：明确为空/);
+      assert.match(await registry.textContent(), /写入注册表：有记录 · 2 条/);
+      assert.equal(await registry.locator('.summary-evidence').count(), 3);
+      await registry.locator('button.secondary').click();
+      assert.equal(await page.locator('#evidence-list .evidence-card').count(), 3);
+      await page.locator('[data-tab="behavior-summary"]').click();
+      await registry.locator('.summary-evidence').nth(1).click();
+      assert.equal(await page.locator('#evidence-list .evidence-card').count(), 1);
+      assert.equal(await page.locator('#search').inputValue(), '/behavior/summary/write_keys/0');
+      await page.locator('#evidence-list input[type="checkbox"]').first().check();
+      const selectedExport = page.waitForEvent('download'); await page.locator('#export-json').click();
+      const summaryJson = JSON.parse(fs.readFileSync(await (await selectedExport).path(),'utf8'));
+      fs.writeFileSync(path.join(artifacts, 'summary-investigation.json'), JSON.stringify(summaryJson,null,2));
+      assert.equal(summaryJson.report.schema_version,'cape-evidence/3');
+      assert.equal(summaryJson.rule_assessment.base_score,1);
+      assert.equal(summaryJson.report.behavior_summary.read_keys.state,'absent');
+      assert.equal(summaryJson.report.behavior_summary.started_services.state,'empty');
+      assert.equal(summaryJson.report.behavior_summary.write_keys.record_count,2);
+      const service = summaryJson.report.evidence.find(item => item.category === 'service_summary');
+      assert.equal(service.process_ref,null); assert.equal(service.data.success,undefined);
+      assert.equal(summaryJson.report.evidence.find(item => item.category === 'api_call').data.status,false);
+      await page.locator('[data-tab="behavior-summary"]').click();
+      assert.match(await page.locator('[data-summary-category="command_summary"]').textContent(), /<img src=x/);
+      assert.equal(await page.locator('#behavior-summary img').count(),0);
+      assert.equal(await page.evaluate(() => window.__summary_xss),undefined);
+      await page.screenshot({path:path.join(artifacts,'summary-desktop.png'),fullPage:true});
+      await registry.screenshot({path:path.join(artifacts,'summary-registry.png')});
+      await page.setViewportSize({width:390,height:844});
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1));
+      await page.screenshot({path:path.join(artifacts,'summary-mobile.png'),fullPage:true});
+      const html = await readableDownload(page,'#export-html',path.join(artifacts,'summary-investigation.html'));
+      assert.match(html,/行为汇总覆盖/); assert.match(html,/字段缺失/); assert.match(html,/明确为空/);
+      assert.doesNotMatch(html,/<img src=x/);
+      console.log('PASS: summary coverage states, duplicate source records, registry pivots, safe command text, unchanged scoring and exports');
+    }
     assert.deepEqual(errors, []);
     console.log('PASS: desktop/mobile demo, process links, timeline, citations, persisted review, export and hostile text');
   } finally {

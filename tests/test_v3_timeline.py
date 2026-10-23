@@ -91,7 +91,7 @@ class TimelineTests(unittest.TestCase):
              contextlib.redirect_stdout(output):
             self.assertEqual(main(['--cape-report', str(FIXTURE), '--synthetic', '--format', 'json']), 0)
         payload = json.loads(output.getvalue())
-        self.assertEqual(payload['schema_version'], 'cape-evidence/2')
+        self.assertEqual(payload['schema_version'], 'cape-evidence/3')
         self.assertTrue(payload['synthetic'])
         hostile = '<script>bad()</script>```\x1b[31m'
         result = parse_cape_report(report_with_calls([{'api': 'Demo',

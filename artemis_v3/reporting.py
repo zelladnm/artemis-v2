@@ -258,8 +258,20 @@ def render_report(snapshot, format, *, generated_at=None):
              ('规则 SHA-256', snapshot['ruleset_sha256'] or '未加载'),
              ('已规范化来源记录', len(report['evidence']))])
     if format == 'html':
-        w.links([('scores', '规则与评分复核'), ('model', '模型解释与核验'), ('pending', '待核查与覆盖'),
+        w.links([('summary', '行为汇总覆盖'), ('scores', '规则与评分复核'), ('model', '模型解释与核验'), ('pending', '待核查与覆盖'),
                  ('timeline', '时间线概览'), ('evidence', '引用证据')])
+    w.heading(2, '行为汇总覆盖', 'summary')
+    w.note('汇总条目可能重叠，不能作为独立行为次数或成功证据；进程、时间和持久化结论须另行核验。')
+    coverage = report.get('behavior_summary', {})
+    if not coverage:
+        w.note('未提供行为汇总覆盖记录。')
+    else:
+        groups = []
+        for state, label in (('reported', '有记录的字段'), ('empty', '明确为空的字段'), ('absent', '字段缺失；覆盖未知')):
+            values = [key + (f"：{item['record_count']} 条" if state == 'reported' else '')
+                      for key, item in coverage.items() if item['state'] == state]
+            groups.append((label, '；'.join(values) if values else '无'))
+        w.facts(groups)
     w.heading(2, '规则结果与评分复核', 'scores')
     if assessment is None:
         w.note('未加载规则集，未计算规则分数。')

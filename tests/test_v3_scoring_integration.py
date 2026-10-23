@@ -33,7 +33,7 @@ class ScoringIntegrationTests(unittest.TestCase):
         self.assertEqual(catalog.source_sha256,
                          hashlib.sha256((FIXTURES / 'scoring_synthetic.json').read_bytes()).hexdigest())
         report = load_cape_report(FIXTURES / 'cape_synthetic.json', synthetic=True)
-        self.assertEqual(report.schema_version, 'cape-evidence/2')
+        self.assertEqual(report.schema_version, 'cape-evidence/3')
         result = assess_signatures(report, catalog.rules, version=catalog.version)
         self.assertEqual(result.base_score, 1)
         self.assertEqual(result.findings[0].evidence_refs,
