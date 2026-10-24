@@ -137,8 +137,8 @@ jobs:
         run: python tools/build_field_bundle.py --output-dir "${{ runner.temp }}/artemis-v3-first-test"
       - name: Verify the exact packaged application without pip or a model
         run: |
-          python "${{ runner.temp }}/artemis-v3-first-test/launch.py" --doctor --data-dir "${{ runner.temp }}/artemis-check-data"
-          python "${{ runner.temp }}/artemis-v3-first-test/launch.py" --smoke-test
+          python -B "${{ runner.temp }}/artemis-v3-first-test/launch.py" --doctor --data-dir "${{ runner.temp }}/artemis-check-data"
+          python -B "${{ runner.temp }}/artemis-v3-first-test/launch.py" --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: artemis-v3-first-test
