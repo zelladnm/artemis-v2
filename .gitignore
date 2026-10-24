@@ -1,15 +1,19 @@
-# Python
 __pycache__/
-*.pyc
-
-# Environment
+*.py[cod]
+.venv/
+venv/
 .env
-
-# Data
-data/raw/
-data/processed/
-data/vector_db/
-
-# IDE
+.env.*
+artemis.local.json
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+state/
+data/
+private/
+reports/
+dist/
 .vscode/
 .idea/

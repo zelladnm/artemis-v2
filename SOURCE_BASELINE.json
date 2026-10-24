@@ -1,0 +1,9 @@
+{
+  "schema_version": "artemis-source-baseline/1",
+  "source_repository": "https://github.com/zelladnm/artemis-v2",
+  "source_commit": "675705e40efc78dd60eaf855b8c37614dd0f5d40",
+  "source_pr": 20,
+  "included": ["artemis_v3", "tests", "docs/v3"],
+  "purpose": "Independent v3 first-machine-test preview; legacy v2 code and heavyweight dependencies are not included.",
+  "limitations": "Synthetic engineering validation is not real-report or model-quality acceptance. No release or main-branch merge is implied."
+}

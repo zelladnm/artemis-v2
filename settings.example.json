@@ -1,0 +1,9 @@
+{
+  "data_dir": null,
+  "port": 0,
+  "open_browser": true,
+  "ollama_model": null,
+  "ollama_port": 11434,
+  "model_timeout": 60,
+  "model_digest": null
+}
