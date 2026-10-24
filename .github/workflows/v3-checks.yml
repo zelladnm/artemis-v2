@@ -57,7 +57,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_v3_storage.py -v
 
   workbench-browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 does not support the ubuntu-26.04 image behind ubuntu-latest.
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     permissions:
       contents: read
