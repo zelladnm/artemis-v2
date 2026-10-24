@@ -1,11 +1,12 @@
 name: Artemis v3 checks
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, 'feat/artemis-v3-*']
-    paths: ['artemis_v3/**', 'tests/**', 'docs/v3/**', '.github/workflows/v3-checks.yml', '.gitattributes']
+    paths: ['artemis_v3/**', 'tests/**', 'tools/**', 'docs/v3/**', 'launch.py', 'start.*', 'doctor.*', 'settings.example.json', 'FIRST_TEST.md', 'SOURCE_BASELINE.json', '.github/workflows/v3-checks.yml', '.gitattributes']
   pull_request:
-    paths: ['artemis_v3/**', 'tests/**', 'docs/v3/**', '.github/workflows/v3-checks.yml', '.gitattributes']
+    paths: ['artemis_v3/**', 'tests/**', 'tools/**', 'docs/v3/**', 'launch.py', 'start.*', 'doctor.*', 'settings.example.json', 'FIRST_TEST.md', 'SOURCE_BASELINE.json', '.github/workflows/v3-checks.yml', '.gitattributes']
 
 jobs:
   test:
@@ -18,7 +19,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile v3 source
-        run: python -m compileall -q artemis_v3
+        run: python -m compileall -q artemis_v3 launch.py tools
       - name: Run v3 offline tests
         run: python -m unittest discover -s tests -p 'test_v3*.py' -v
       - name: Prepare a synthetic draft and preflight annotated suites without a model
@@ -97,3 +98,50 @@ jobs:
           path: ${{ runner.temp }}/artemis-ui-artifacts
           retention-days: 7
           if-no-files-found: ignore
+
+  field-start:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python: '3.11'
+          - os: windows-latest
+            python: '3.13'
+          - os: ubuntu-24.04
+            python: '3.13'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Validate standalone package, Unicode paths, native scripts and temporary HTTP/storage self-test
+        run: python -m unittest discover -s tests -p test_v3_deployment.py -v
+
+  field-package:
+    needs: [test, storage-windows, workbench-browser, field-start]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build an application-only first-machine-test package
+        run: python tools/build_field_bundle.py --output-dir "${{ runner.temp }}/artemis-v3-first-test"
+      - name: Verify the exact packaged application without pip or a model
+        run: |
+          python -B "${{ runner.temp }}/artemis-v3-first-test/launch.py" --doctor --data-dir "${{ runner.temp }}/artemis-check-data"
+          python -B "${{ runner.temp }}/artemis-v3-first-test/launch.py" --smoke-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artemis-v3-first-test
+          path: ${{ runner.temp }}/artemis-v3-first-test
+          retention-days: 14
+          if-no-files-found: error
