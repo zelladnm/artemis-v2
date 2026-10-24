@@ -26,7 +26,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class DeploymentTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='Artemis 空格 '); self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        # Windows TEMP may use an 8.3 alias; compare canonical paths just as
+        # the launcher does when resolving configured data directories.
+        self.root = Path(temporary.name).resolve()
         self.data = self.root / 'private data'
 
     def settings(self, *args):
